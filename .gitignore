@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated artefacts: the pipeline rebuilds these from raw data.
+data/mdm.duckdb
+data/mdm.duckdb.wal
+reports/*
+!reports/.gitkeep

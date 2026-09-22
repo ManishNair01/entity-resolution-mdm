@@ -1,0 +1,8 @@
+# Pinned 2026-09-22 against Python 3.11 on Windows.
+# Direct dependencies agreed in the roadmap (Phase 0). Owner: confirm these pins.
+pandas==2.3.3
+duckdb==1.5.5
+splink==4.0.17
+recordlinkage==0.16
+PyYAML==6.0.3
+pytest==9.1.1
