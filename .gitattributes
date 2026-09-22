@@ -1,0 +1,4 @@
+# The raw source snapshot must stay byte-identical on every clone, so keep git
+# out of its line endings. Nothing in the pipeline reads this file, but it is the
+# reference copy of the input data.
+data/raw/febrl3.csv -text

@@ -62,6 +62,26 @@ def test_ingest_is_reproducible(ingested_db, tmp_path):
     assert fingerprint(second_db) == fingerprint(first_db)
 
 
+def test_ingest_does_not_depend_on_source_row_order(monkeypatch):
+    """Row order from `recordlinkage` must not change the table.
+
+    Every derived value is a hash of the record's own ID, so re-ordering the input
+    must produce an identical frame. If this fails, the pipeline has picked up a
+    dependency on the order the dataset package happens to return.
+    """
+    baseline = ingest.build_raw_customers()
+
+    original_loader = ingest.load_source_frame
+    monkeypatch.setattr(
+        ingest,
+        "load_source_frame",
+        lambda: original_loader().sort_values("rec_id").reset_index(drop=True),
+    )
+    reordered = ingest.build_raw_customers()
+
+    assert reordered.equals(baseline)
+
+
 def test_true_entity_count_matches_originals(ingested_db):
     """Acceptance check: distinct entities == the number of `-org` records observed."""
     _, metrics = ingested_db

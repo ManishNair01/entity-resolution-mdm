@@ -12,8 +12,8 @@ Record-ID format confirmed against the installed dataset (recordlinkage 0.16):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
-import random
 import re
 from datetime import date, timedelta
 from pathlib import Path
@@ -30,8 +30,12 @@ METRICS_PATH = PROJECT_ROOT / "reports" / "metrics.json"
 TABLE_NAME = "raw_customers"
 
 # --- Determinism (AGENTS.md architecture rule 4) ------------------------------
-# One seed drives the row shuffle and both synthetic columns, so two runs produce
-# byte-identical tables.
+# Everything random here is derived from SHA-256 of the record's own ID plus this
+# seed, not from a random number generator. A generator would make the output
+# depend on the order rows arrive in and on the RNG's stream staying stable across
+# Python versions; CPython only guarantees that for `random.random()`. Hashing the
+# key makes each row's values a pure function of that row, so a fresh clone on a
+# different Python or platform rebuilds a byte-identical table.
 RANDOM_SEED = 42
 
 # --- Synthetic metadata (roadmap section 2) -----------------------------------
@@ -57,6 +61,18 @@ FEBRL_COLUMNS = [
 ]
 
 REC_ID_PATTERN = re.compile(r"^rec-(?P<cluster>\d+)-(?:org|dup-\d+)$")
+
+
+def stable_hash(namespace: str, key: str, seed: int = RANDOM_SEED) -> int:
+    """Return a stable 64-bit integer for `key` within `namespace`.
+
+    The namespace keeps the three derived values independent: a record's source
+    system tells you nothing about its timestamp or its position. Unlike
+    `hash()`, SHA-256 is identical across processes, Python versions and
+    platforms, which is what makes the fresh-clone test reproducible.
+    """
+    digest = hashlib.sha256(f"{seed}:{namespace}:{key}".encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big")
 
 
 def load_source_frame() -> pd.DataFrame:
@@ -91,31 +107,38 @@ def derive_true_cluster_id(rec_ids: pd.Series) -> pd.Series:
 def add_synthetic_metadata(frame: pd.DataFrame, seed: int = RANDOM_SEED) -> pd.DataFrame:
     """Attach the invented `source_system` and `last_updated` columns.
 
-    Both are drawn uniformly from a seeded generator: `source_system` over
+    Each row's values come from a hash of its own `rec_id`: `source_system` over
     CRM / ERP / WEB_FORM, `last_updated` over the `LAST_UPDATED_WINDOW_DAYS` days
-    ending on `LAST_UPDATED_REFERENCE_DATE`.
+    ending on `LAST_UPDATED_REFERENCE_DATE`. The spread is near-uniform, and the
+    modulo bias is negligible at 64 bits against these ranges.
     """
-    rng = random.Random(seed)
     out = frame.copy()
     start = LAST_UPDATED_REFERENCE_DATE - timedelta(days=LAST_UPDATED_WINDOW_DAYS - 1)
-    out["source_system"] = [rng.choice(SOURCE_SYSTEMS) for _ in range(len(out))]
+    out["source_system"] = [
+        SOURCE_SYSTEMS[stable_hash("source_system", rec_id, seed) % len(SOURCE_SYSTEMS)]
+        for rec_id in out["rec_id"]
+    ]
     out["last_updated"] = [
-        start + timedelta(days=rng.randrange(LAST_UPDATED_WINDOW_DAYS)) for _ in range(len(out))
+        start + timedelta(days=stable_hash("last_updated", rec_id, seed) % LAST_UPDATED_WINDOW_DAYS)
+        for rec_id in out["rec_id"]
     ]
     return out
 
 
 def assign_unique_id(frame: pd.DataFrame, seed: int = RANDOM_SEED) -> pd.DataFrame:
-    """Shuffle deterministically, then number the rows 0..n-1 as `unique_id`.
+    """Order rows by a hash of `rec_id`, then number them 0..n-1 as `unique_id`.
 
-    Splink needs an integer key. The shuffle matters: if IDs were handed out in
-    `rec_id` order, records of one entity would get adjacent IDs and the key would
-    itself carry ground truth.
+    Splink needs an integer key. The hash ordering matters twice over: if IDs were
+    handed out in `rec_id` order, records of one entity would get adjacent IDs and
+    the key would itself carry ground truth; and ordering by hash rather than by
+    arrival position means the IDs do not depend on the order `recordlinkage` hands
+    the rows back. `rec_id` breaks ties, so the ordering is total even if two
+    hashes collide.
     """
-    rng = random.Random(seed)
-    order = list(range(len(frame)))
-    rng.shuffle(order)
-    out = frame.iloc[order].reset_index(drop=True)
+    out = frame.copy()
+    order_key = [(stable_hash("unique_id", rec_id, seed), rec_id) for rec_id in out["rec_id"]]
+    out["_order_key"] = order_key
+    out = out.sort_values("_order_key").drop(columns="_order_key").reset_index(drop=True)
     out.insert(0, "unique_id", pd.Series(range(len(out)), dtype="int64"))
     return out
 
@@ -138,7 +161,11 @@ def write_raw_snapshot(frame: pd.DataFrame, path: Path | None = None) -> None:
     if path.exists():
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    frame.sort_values("rec_id")[["rec_id"] + FEBRL_COLUMNS].to_csv(path, index=False)
+    # LF explicitly: pandas would otherwise use the platform's line ending, so the
+    # same data would write differently on Windows and Linux.
+    frame.sort_values("rec_id")[["rec_id"] + FEBRL_COLUMNS].to_csv(
+        path, index=False, lineterminator="\n"
+    )
 
 
 def write_metrics(metrics: dict, path: Path | None = None) -> None:
