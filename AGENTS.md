@@ -7,7 +7,7 @@ The full plan is in `project-1-entity-resolution-roadmap.md`. Ownership of each 
 
 Deduplicate a messy customer dataset (Febrl 3), merge duplicates into golden records with explicit survivorship rules, and report data quality. It's a portfolio project whose owner must be able to defend every design decision in an interview. Your job is plumbing, not decisions.
 
-- **Current phase:** 0  <!-- owner updates this -->
+- **Current phase:** 1  <!-- owner updates this -->
 - **Python:** 3.11+
 - **Splink version:** 4.0.17 (installed 2026-09-22; pinned in `requirements.txt`). Use only this version's API. v3 and v4 differ; do not mix them. If unsure of a function name, say so instead of guessing.
 
@@ -28,7 +28,7 @@ pytest                          # all tests, including guard tests
 
 ## Hard rules
 
-1. **No label leakage.** Only `src/ingest.py` (creates it) and `src/evaluate.py` (uses it) may reference `true_cluster_id`. Drop it from any DataFrame passed to Splink. Never use ground truth to train, tune, or choose anything in `model.py`, `cluster.py`, or `survivorship.py`.
+1. **No label leakage.** Ground truth means `true_cluster_id` **and `rec_id`** — `rec-12-dup-0` spells out the entity number just as plainly as the label does. Only `src/ingest.py` (creates them) and `src/evaluate.py` (uses them) may reference either. Drop both from any DataFrame passed to Splink and from anything shown on a review screen. Never use either to train, tune, or choose anything in `model.py`, `cluster.py`, or `survivorship.py`.
 2. **No invented numbers.** Never write a metric, count, or result into any file unless the pipeline produced it in this run. If a number is unknown, leave a `[TBD]` placeholder.
 3. **Stay in phase.** Work only on the current phase. Don't add features, files, or refactors that belong to later phases or weren't asked for.
 4. **No new dependencies** without asking the owner first.
