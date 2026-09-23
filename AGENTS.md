@@ -56,20 +56,6 @@ once the owner answers, and update the date at the top. Keep it current in every
 - `tests/test_no_label_leakage.py`: fails if the string `true_cluster_id` appears in any `src/*.py` file other than `ingest.py` and `evaluate.py`.
 - `tests/test_raw_untouched.py`: fails if `raw_customers` changes (row count or a content hash) after running the pipeline.
 
-## Agent skills
-
-### Issue tracker
-
-Issues live as GitHub issues in `ManishNair01/entity-resolution-mdm`, managed with the `gh` CLI. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-The five canonical triage roles, each using its own name as the label string. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: one `CONTEXT.md` and one `docs/adr/` at the repo root. See `docs/agents/domain.md`.
-
 ## When you finish a task
 
 Report:
