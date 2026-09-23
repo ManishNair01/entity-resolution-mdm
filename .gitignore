@@ -11,3 +11,7 @@ data/mdm.duckdb.wal
 # The reports themselves (profile.md, model_evaluation.md, charts) are
 # deliverables and belong in the repo.
 reports/metrics.json
+
+# Claude Code session transcript, written into the repo root by the desktop
+# app. Local scratch, not project content.
+code_session.jsonl
