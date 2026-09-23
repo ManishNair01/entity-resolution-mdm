@@ -4,7 +4,7 @@ Things the agent needs from the owner, and the decisions already made. The agent
 adds to this file whenever it hits a choice that belongs to the owner
 (`AGENTS.md`, "Owner-owned decisions"), or makes an assumption to keep moving.
 
-**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-23 (agent-skills setup reverted)
+**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-23 (leakage guard extended to `rec_id`)
 
 - **Open** — waiting on you. The agent has assumed something in the meantime;
   each entry says what.
@@ -33,17 +33,7 @@ Splink 4 means the **v4 API**; v3 examples found online will not work.
 
 *Assumed:* these pins are acceptable.
 
-### 3. Should the leakage guard also cover `rec_id`?
-
-`rec_id` encodes the entity just as plainly as `true_cluster_id`, and it sits in
-`raw_customers`. Passing it to Splink would leak labels, but
-`tests/test_no_label_leakage.py` only looks for the `true_cluster_id` string,
-which is what `AGENTS.md` specifies.
-
-*Assumed:* the test stays as specified. Say the word and the agent extends it to
-`rec_id`, with `ingest.py` and `evaluate.py` still exempt.
-
-### 4. Where do the ingest constants belong?
+### 3. Where do the ingest constants belong?
 
 `RANDOM_SEED = 42`, `LAST_UPDATED_REFERENCE_DATE = 2026-09-22`, and a 3-year
 window are constants at the top of `src/ingest.py`. They are not DQ, blocking or
@@ -52,7 +42,7 @@ survivorship rules, so the config rule does not clearly cover them.
 *Assumed:* they stay in `ingest.py`. They can move to a config file if you would
 rather every tunable value live in YAML.
 
-### 5. Is the raw CSV snapshot worth tracking in git?
+### 4. Is the raw CSV snapshot worth tracking in git?
 
 `data/raw/febrl3.csv` is committed (469 KB, 5,000 rows). It matches the roadmap's
 `data/raw/` structure and makes the input inspectable on GitHub, but it is
@@ -60,7 +50,7 @@ regenerable from `recordlinkage` at any time.
 
 *Assumed:* keep it tracked.
 
-### 6. Per-phase pull requests, or commit straight to `main`?
+### 5. Per-phase pull requests, or commit straight to `main`?
 
 Phase 0's reproducibility work went through PR #1. For a solo repo that is
 optional ceremony — though it does give a diff to review against the §10.4
@@ -92,6 +82,7 @@ first, you read them and write the list from what you actually see.
 | 2026-09-22 | Commit the reports, ignore `reports/metrics.json` only | `profile.md` and the scorecard are deliverables; the metrics file churns every run |
 | 2026-09-22 | Synthetic `source_system` and `last_updated` | Roadmap §2. Uniform over CRM / ERP / WEB_FORM and over the 3 years to 2026-09-22; documented as synthetic in the README |
 | 2026-09-23 | No second issue tracker: reverted the GitHub-issues / triage-label / ADR skill setup | `AGENTS.md` and `OPEN-DECISIONS.md` already carry the decisions for a solo, single-repo project; the setup duplicated that ledger and was out of phase. Don't re-run it. |
+| 2026-09-23 | The leakage guard covers `rec_id` as well as `true_cluster_id` | `rec-12-dup-0` names the entity as plainly as the label does, so leaving it unguarded would let the matching code cheat instead of matching. `AGENTS.md` rule 1 and `tests/test_no_label_leakage.py` now cover both strings; `ingest.py` and `evaluate.py` stay exempt |
 
 ---
 
