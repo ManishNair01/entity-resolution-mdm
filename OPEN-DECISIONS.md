@@ -4,7 +4,7 @@ Things the agent needs from the owner, and the decisions already made. The agent
 adds to this file whenever it hits a choice that belongs to the owner
 (`AGENTS.md`, "Owner-owned decisions"), or makes an assumption to keep moving.
 
-**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-22 (end of Phase 0)
+**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-23 (agent-skills setup)
 
 - **Open** — waiting on you. The agent has assumed something in the meantime;
   each entry says what.
@@ -91,6 +91,10 @@ first, you read them and write the list from what you actually see.
 | 2026-09-22 | `unique_id` = rank of a hash of `rec_id` | Sequential IDs in `rec_id` order would have leaked the entity through the key itself |
 | 2026-09-22 | Commit the reports, ignore `reports/metrics.json` only | `profile.md` and the scorecard are deliverables; the metrics file churns every run |
 | 2026-09-22 | Synthetic `source_system` and `last_updated` | Roadmap §2. Uniform over CRM / ERP / WEB_FORM and over the 3 years to 2026-09-22; documented as synthetic in the README |
+| 2026-09-23 | Issue tracker is GitHub Issues | Set up by `setup-matt-pocock-skills`; `to-issues`, `to-prd` and `triage` read from it via `gh` |
+| 2026-09-23 | Triage labels keep their canonical names | `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human` created on the repo; stock `wontfix` reused |
+| 2026-09-23 | Single-context domain docs | One `CONTEXT.md` and `docs/adr/` at the root, once `/grill-with-docs` creates them |
+| 2026-09-23 | `## Agent skills` block lives in `AGENTS.md`, not `CLAUDE.md` | The skill says edit `CLAUDE.md`, but that file is deliberately just `@AGENTS.md`, so the rules stay in one place |
 
 ---
 
