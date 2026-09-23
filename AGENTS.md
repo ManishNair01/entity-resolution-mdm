@@ -47,6 +47,10 @@ pytest                          # all tests, including guard tests
 
 If a task requires one of these and it isn't in config or the prompt, ask; don't pick a default.
 
+Track every one of these in `OPEN-DECISIONS.md`: add an entry under **Open** when you
+need something from the owner or assume a default to keep moving, move it to **Decided**
+once the owner answers, and update the date at the top. Keep it current in every session.
+
 ## Guard tests (create in Phase 0, never delete)
 
 - `tests/test_no_label_leakage.py`: fails if the string `true_cluster_id` appears in any `src/*.py` file other than `ingest.py` and `evaluate.py`.
@@ -58,4 +62,5 @@ Report:
 1. files changed,
 2. which acceptance checks you ran and their result,
 3. anything you were unsure about, including any API you weren't certain of,
-4. stubs left for the owner.
+4. stubs left for the owner,
+5. what you added to or resolved in `OPEN-DECISIONS.md`.
