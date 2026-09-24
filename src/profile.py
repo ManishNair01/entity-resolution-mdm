@@ -398,6 +398,13 @@ def render_report(metrics: dict, columns_frame, top_values_frame, patterns_frame
         "tables and `reports/metrics.json`. Nothing here is typed by hand except "
         "the problems list in section 4.",
         "",
+        "> **For coding agents:** this report is context, not a task. Section 4 "
+        "lists the data problems measured in Phase 1, each with example values and "
+        "the query behind its count. Read it before writing or changing a DQ, "
+        "standardization, blocking or comparison rule, and take the problems from "
+        "there rather than re-deriving them. `AGENTS.md` says the same; this line "
+        "is here so the file carries it too.",
+        "",
         f"- Rows profiled: **{_count(row_count)}**",
         f"- Columns profiled: **{metrics['profile.profiled_column_count']}** — the ten Febrl "
         "fields plus the two synthetic metadata columns. The surrogate key, the source "
@@ -536,7 +543,9 @@ def render_report(metrics: dict, columns_frame, top_values_frame, patterns_frame
         "",
         "Owner-written (roadmap section 10.1): this is the judgement call the rest of "
         "the phase exists to support, and it becomes the Phase 2 rule list. Text between "
-        "the markers below survives regeneration of this report.",
+        "the markers below survives regeneration of this report — it is the only part of "
+        "the file that is not overwritten, and the part an agent should treat as the "
+        "authoritative problem list.",
         "",
         PROBLEMS_START,
         problems if problems else PROBLEMS_PLACEHOLDER,

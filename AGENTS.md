@@ -19,6 +19,24 @@ python run_pipeline.py          # full pipeline, raw data → scorecard
 pytest                          # all tests, including guard tests
 ```
 
+## Read before writing any rule
+
+`reports/profile.md` is written for you, not for the owner. Section 4, "Problems
+observed", is the list of data problems measured in Phase 1 — invalid state
+codes, dates that pass a format check but do not parse, single-character typos,
+swapped name fields, uneven missingness, and a near-key that is not unique — each
+with example values and the query behind its count.
+
+Read that section before writing or changing anything in `config/dq_rules.yaml`,
+`standardize.py`, `blocking.yaml`, or a Splink comparison, and take the problems
+from there rather than re-deriving them from the data. The owner reviews the raw
+profile tables separately; the file is the agent's shared reference so both
+arrive at the same facts.
+
+Two entries in it are open questions, not settled rules: whether an invalid state
+code is repaired or only flagged, and whether `date_of_birth` is mandatory. Those
+are owner decisions — see `OPEN-DECISIONS.md`.
+
 ## Architecture rules
 
 1. Every stage reads from `data/mdm.duckdb` and writes a **new** table. Never modify or overwrite `raw_customers` or an earlier stage's output.
