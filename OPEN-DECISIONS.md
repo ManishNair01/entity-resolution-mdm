@@ -4,7 +4,7 @@ Things the agent needs from the owner, and the decisions already made. The agent
 adds to this file whenever it hits a choice that belongs to the owner
 (`AGENTS.md`, "Owner-owned decisions"), or makes an assumption to keep moving.
 
-**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-23 (leakage guard extended to `rec_id`)
+**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-24 (Phase 1 profiling)
 
 - **Open** — waiting on you. The agent has assumed something in the meantime;
   each entry says what.
@@ -58,16 +58,76 @@ checklist, which is a step in your own workflow.
 
 *Assumed:* keep opening a PR per phase until told otherwise.
 
+### 6. How Phase 1 reports duplication without reading the label
+
+The duplicate rate and cluster-size distribution are ground-truth figures, but
+hard rule 1 keeps `true_cluster_id` inside `ingest.py`. So `ingest.py` now also
+writes `ground_truth_cluster_sizes`: one row per cluster size, holding how many
+entities have that many records. `profile.py` reads that aggregate, which cannot
+be traced back to any record.
+
+*Assumed:* an aggregate with no per-record label is not leakage, and extending
+`ingest.py` for it is better than letting a second module see the label. The
+alternative — profiling duplication inside `ingest.py` — would put a Phase 1
+deliverable in the Phase 0 module.
+
+### 7. Format patterns do not distinguish case
+
+The roadmap says letters map to `A`, so `nsw` and `NSW` share the pattern `AAA`
+and case drift is invisible in the profile. Mapping upper-case to `A` and
+lower-case to `a` would expose it.
+
+*Assumed:* the roadmap's spec, as written. Febrl 3 is lower-case throughout, and
+Phase 2 case-folds anyway, so nothing is lost here — but say the word and the
+pattern function will split the two.
+
+### 8. The report shows two pattern views
+
+The literal pattern encodes length, so a name column's top ten patterns are ten
+different lengths and the handful of values carrying a hyphen or a space never
+surface. The report therefore also shows a "shape": the same pattern with runs of
+one symbol collapsed, so `1942-08-04` becomes `9-9-9` and `mary-jane` becomes
+`A-A`.
+
+*Assumed:* both views earn their space. Drop the shape tables if the report reads
+as too long.
+
+### 9. Which numbers go into `metrics.json`
+
+Architecture rule 3 says reports take numbers from `metrics.json` only. Every
+headline figure does: per-column completeness, nulls, blanks, distinct counts,
+lengths, pattern and shape counts, and the duplication figures. The top-values and
+top-patterns tables do not — they are roughly 220 rows of per-value detail, and
+they come from the `profile_*` DuckDB tables written in the same run.
+
+*Assumed:* "metric" means the headline numbers, not every cell of every detail
+table.
+
+### 10. The "problems observed" list is a placeholder, not a `NotImplementedError`
+
+Rule 5 asks for owner-owned work to raise. A raise here would break
+`run_pipeline.py`, so `profile.py` instead writes a `[TBD]` block into section 4
+of `reports/profile.md`. Anything you write between the `problems-observed`
+markers is preserved when the report is regenerated; the rest of the file is
+overwritten every run.
+
+*Assumed:* a visible `[TBD]` beats a pipeline that cannot run to the end.
+
 ---
 
 ## Needed before the next phase
 
-**Phase 1 — profiling.** The agent writes the profiling SQL, the pattern
-function and the report formatting. The **"problems observed" list is yours**
-(§10.1): at least five concrete problems, each with a real example value. It
-feeds directly into the Phase 2 rules, and it is the part an interviewer will
-ask you to defend. Suggested order: the agent generates the profile tables
-first, you read them and write the list from what you actually see.
+**Phase 1 — profiling.** The profile tables and `reports/profile.md` are
+generated. What is left is yours and it is the acceptance check that still fails:
+the **"problems observed" list** (§10.1), at least five concrete problems, each
+with a real example value. Write it into section 4 of `reports/profile.md`,
+between the `problems-observed` markers, where re-runs will not overwrite it. It
+feeds directly into the Phase 2 rules, and it is the part an interviewer will ask
+you to defend — so write it from what the tables actually show.
+
+**Phase 2 — DQ rules.** Nothing can start until the list above exists, since the
+validity rules are supposed to come from observed formats rather than assumed
+ones.
 
 ---
 

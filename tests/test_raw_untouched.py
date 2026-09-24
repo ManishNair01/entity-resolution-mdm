@@ -13,7 +13,7 @@ import duckdb
 import pytest
 
 import run_pipeline
-from src import ingest
+from src import ingest, profile
 
 
 def fingerprint(db_path) -> tuple[int, str]:
@@ -34,6 +34,8 @@ def ingested_db(tmp_path_factory, request):
     request.addfinalizer(monkeypatch.undo)
     monkeypatch.setattr(ingest, "METRICS_PATH", tmp / "metrics.json")
     monkeypatch.setattr(ingest, "RAW_SNAPSHOT_PATH", tmp / "febrl3.csv")
+    # Later stages write reports too; keep the committed ones out of the test run.
+    monkeypatch.setattr(profile, "REPORT_PATH", tmp / "profile.md")
 
     db_path = tmp / "mdm.duckdb"
     metrics = ingest.run(db_path)

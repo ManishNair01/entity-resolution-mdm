@@ -1,7 +1,7 @@
 """Run every pipeline stage end to end: raw data -> scorecard.
 
-Phase 0 skeleton. Only the ingest stage exists so far; later phases append to
-`STAGES` in order. The guard test `tests/test_raw_untouched.py` runs this module,
+Stages run in phase order and each appends to `STAGES`; later phases add to the
+end of the list. The guard test `tests/test_raw_untouched.py` runs this module,
 so it must stay runnable against an arbitrary DuckDB path.
 """
 
@@ -10,13 +10,14 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from src import ingest
+from src import ingest, profile
 
 DEFAULT_DB_PATH = ingest.DEFAULT_DB_PATH
 
 # (stage name, callable taking a db path and returning a metrics dict)
 STAGES = [
     ("ingest", ingest.run),
+    ("profile", profile.run),
 ]
 
 
