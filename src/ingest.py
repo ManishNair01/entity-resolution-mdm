@@ -29,6 +29,13 @@ METRICS_PATH = PROJECT_ROOT / "reports" / "metrics.json"
 
 TABLE_NAME = "raw_customers"
 
+# An aggregate of the ground truth: one row per cluster size, holding how many
+# entities have that many records. Phase 1 needs the duplicate rate and the cluster
+# size distribution, but hard rule 1 keeps the label inside this module, so the
+# label is collapsed to counts here. No row in this table can be traced back to an
+# entity, which is what makes it safe for a later stage to read.
+GROUND_TRUTH_TABLE = "ground_truth_cluster_sizes"
+
 # --- Determinism (AGENTS.md architecture rule 4) ------------------------------
 # Everything random here is derived from SHA-256 of the record's own ID plus this
 # seed, not from a random number generator. A generator would make the output
@@ -204,6 +211,22 @@ def run(db_path: Path | str = DEFAULT_DB_PATH, seed: int = RANDOM_SEED) -> dict:
             f"SELECT {columns} FROM raw_frame ORDER BY unique_id"
         )
         con.unregister("raw_frame")
+        con.execute(
+            f"""
+            CREATE OR REPLACE TABLE {GROUND_TRUTH_TABLE} AS
+            SELECT
+                cluster_size,
+                COUNT(*) AS entity_count,
+                cluster_size * COUNT(*) AS record_count
+            FROM (
+                SELECT true_cluster_id, COUNT(*) AS cluster_size
+                FROM {TABLE_NAME}
+                GROUP BY true_cluster_id
+            )
+            GROUP BY cluster_size
+            ORDER BY cluster_size
+            """
+        )
 
     metrics = {
         "ingest.record_count": int(len(frame)),
