@@ -497,12 +497,111 @@ Patterns map every digit to `9` and every letter to `A`, leaving separators alon
 Owner-written (roadmap section 10.1): this is the judgement call the rest of the phase exists to support, and it becomes the Phase 2 rule list. Text between the markers below survives regeneration of this report.
 
 <!-- problems-observed:start -->
-[TBD] — owner-written (roadmap section 10.1). List at least five concrete
-problems seen in the tables above, each with a real example value, e.g. a
-misspelt state code or a name that appears in the wrong column. These become
-the candidate rules in Phase 2, so write them from what the profile actually
-shows rather than from what the dataset is supposed to contain.
+Six problems, in the order they matter for Phase 2. Completeness figures are
+quoted from `reports/metrics.json`; the rest come from ad-hoc SQL against
+`raw_customers`, and each item carries the query so the number can be re-run and
+checked. Nothing here uses ground truth: every problem is visible to a matcher
+looking only at the data, which is the point — these are the problems the rules
+have to survive, not the answers.
 
-Anything written between the two `problems-observed` comment markers is kept
-when this report is regenerated; everything else in the file is overwritten.
+**1. Invalid state codes — 71 rows across 27 distinct values.**
+`state` holds 35 distinct values where Australia has 8. The extras are one- and
+two-character corruptions of real codes: `nws` (13 rows), `vci` (11), `qdl` (6),
+`nsq` (5), and 14 values appearing once each. A further 85 rows have no state
+at all.
+
+```sql
+SELECT state, COUNT(*) FROM raw_customers
+WHERE state IS NOT NULL
+  AND state NOT IN ('nsw','vic','qld','wa','sa','tas','act','nt')
+GROUP BY 1 ORDER BY 2 DESC;
+```
+
+*Phase 2:* a validity rule against a closed list of 8 codes. Worth deciding
+whether `nws` is repaired to `nsw` or only flagged — repairing a value the source
+never held is a judgement call, and a wrong repair is invisible afterwards.
+
+**2. Dates of birth that are not dates — 35 rows.**
+Every populated `date_of_birth` is 8 digits (one pattern, `99999999`), so the
+format is uniform and a length or pattern check passes all of them. Parsing does
+not: `19160017` has month `00`, `19027803` has month `78`, `19320079` has day
+`79`. 155 rows are missing the field entirely (96.90% complete).
+
+```sql
+SELECT date_of_birth, COUNT(*) FROM raw_customers
+WHERE date_of_birth IS NOT NULL
+  AND TRY_STRPTIME(date_of_birth, '%Y%m%d') IS NULL
+GROUP BY 1 ORDER BY 2 DESC;
+```
+
+*Phase 2:* the validity rule has to be "parses as a real date", not "is 8
+digits". This one is the argument for why pattern profiling alone is not enough.
+
+**3. Single-character typos in names and places — 130 suburb values and 144
+surnames.**
+Counting rare values (≤2 rows) within one edit of a common one (≥10 rows):
+`frankston` (44 rows) also appears as `frankton`, `franiston`, `franksgon`,
+`frankstpn`, `franlston`, `frankwton`, `frankstwon` and `fran kston` — the last
+with a space inserted mid-word, so it is not only letters that get corrupted.
+
+```sql
+WITH v AS (SELECT suburb AS s, COUNT(*) AS n FROM raw_customers
+           WHERE suburb IS NOT NULL GROUP BY 1)
+SELECT a.s, a.n, b.s, b.n FROM v a JOIN v b
+  ON a.s <> b.s AND a.n <= 2 AND b.n >= 10 AND levenshtein(a.s, b.s) = 1
+ORDER BY b.n DESC;
+```
+
+*Phase 3/4:* this is the case exact matching cannot win, and the reason the
+project needs fuzzy comparisons at all. Standardization must not try to fix it:
+collapsing `frankton` into `frankston` guesses at the truth.
+
+**4. Given name and surname swapped between records — 228 record pairs.**
+Among records sharing a `soc_sec_id`, 228 pairs have the two name fields
+exchanged: `blackwell` / `giaan` against `giaan` / `blackwell` (`soc_sec_id`
+6179681), `karlsen` / `spyke` against `spyke` / `karlsen` (5567470). A shared
+`soc_sec_id` is not proof of the same person, so treat 228 as an estimate — but
+the pattern is unambiguous.
+
+```sql
+SELECT COUNT(*) FROM raw_customers a JOIN raw_customers b
+  ON a.soc_sec_id = b.soc_sec_id AND a.unique_id < b.unique_id
+WHERE a.given_name = b.surname AND a.surname = b.given_name
+  AND a.given_name <> a.surname;
+```
+
+*Phase 4:* comparing `given_name` to `given_name` alone misses these entirely.
+Either the comparison allows a crossed match, or these 228 pairs are lost.
+
+**5. Missingness is uneven, and a few records are unusable — 6 rows with no name.**
+`address_2` is 86.14% complete (693 missing), `street_number` 95.10% (245),
+`given_name` 96.88% (156), `date_of_birth` 96.90% (155). Of the ten source fields, only `postcode` and
+`soc_sec_id` are fully populated. Six records have neither given name nor
+surname, and two have no address component at all.
+
+*Phase 2:* this decides the mandatory-field list. A rule requiring
+`date_of_birth` would reject 155 real records, so what counts as "usable" is a
+trade-off to make on purpose rather than by default.
+
+**6. No field is a reliable key, including the one that looks like one.**
+`soc_sec_id` is 100% populated and always 7 digits, so it reads like an
+identifier — but it holds 2,291 distinct values over 5,000 rows. Of the 1,127 ids
+held by more than one record, 622 disagree on surname, 384 on postcode and 160 on
+date of birth.
+
+```sql
+SELECT COUNT(*) AS ids_sharing,
+       SUM(CASE WHEN surname_variants  > 1 THEN 1 ELSE 0 END) AS diff_surname,
+       SUM(CASE WHEN postcode_variants > 1 THEN 1 ELSE 0 END) AS diff_postcode,
+       SUM(CASE WHEN dob_variants      > 1 THEN 1 ELSE 0 END) AS diff_dob
+FROM (SELECT soc_sec_id,
+             COUNT(DISTINCT surname)       AS surname_variants,
+             COUNT(DISTINCT postcode)      AS postcode_variants,
+             COUNT(DISTINCT date_of_birth) AS dob_variants
+      FROM raw_customers GROUP BY 1 HAVING COUNT(*) > 1);
+```
+
+*Phase 3:* a deterministic rule keyed on any single field is wrong in both
+directions — it merges records that disagree everywhere else, and splits records
+that agree everywhere else but were typed differently once.
 <!-- problems-observed:end -->

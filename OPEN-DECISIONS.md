@@ -4,7 +4,7 @@ Things the agent needs from the owner, and the decisions already made. The agent
 adds to this file whenever it hits a choice that belongs to the owner
 (`AGENTS.md`, "Owner-owned decisions"), or makes an assumption to keep moving.
 
-**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-24 (Phase 1 profiling)
+**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-24 (Phase 1 profiling; problems list drafted)
 
 - **Open** — waiting on you. The agent has assumed something in the meantime;
   each entry says what.
@@ -113,21 +113,46 @@ overwritten every run.
 
 *Assumed:* a visible `[TBD]` beats a pipeline that cannot run to the end.
 
+### 11. The problems list was drafted by the agent, at your request
+
+§10.1 makes the "problems observed" list yours. You asked the agent to write it,
+so section 4 of `reports/profile.md` is a draft, not your position. **Read it
+against the tables and rewrite anything you would not defend**, because Phase 2's
+rules are built on it and an interviewer will start here.
+
+Two things in it are judgement calls the draft deliberately left open rather than
+settling: whether `nws` is *repaired* to `nsw` or only flagged (problem 1), and
+which fields are mandatory given that requiring `date_of_birth` rejects 155 real
+records (problem 5).
+
+### 12. Numbers in the problems list do not come from `metrics.json`
+
+Architecture rule 3 says reports take numbers from `metrics.json`. The
+completeness figures in section 4 do. The rest — 71 invalid state codes, 35
+unparseable dates, 130 near-duplicate suburbs, 228 swapped-name pairs, the
+`soc_sec_id` disagreement counts — come from ad-hoc SQL run against
+`raw_customers` while drafting, so each item carries its query and can be
+re-checked.
+
+*Assumed:* a measured, reproducible number with its query beside it is not an
+invented one. Phase 2 makes the point moot: every one of these becomes a rule in
+`dq_rules.yaml` with a counted `dq_violations` row, and section 4 can then quote
+`metrics.json` like the rest of the report.
+
 ---
 
 ## Needed before the next phase
 
-**Phase 1 — profiling.** The profile tables and `reports/profile.md` are
-generated. What is left is yours and it is the acceptance check that still fails:
-the **"problems observed" list** (§10.1), at least five concrete problems, each
-with a real example value. Write it into section 4 of `reports/profile.md`,
-between the `problems-observed` markers, where re-runs will not overwrite it. It
-feeds directly into the Phase 2 rules, and it is the part an interviewer will ask
-you to defend — so write it from what the tables actually show.
+**Phase 1 — profiling.** Complete, with one caveat: the "problems observed" list
+in section 4 of `reports/profile.md` is an agent draft written at your request
+(decision 11), not your own reading. Six problems are listed, each with example
+values and the query behind it. **Review it before Phase 2 starts** — the rules
+descend directly from it.
 
-**Phase 2 — DQ rules.** Nothing can start until the list above exists, since the
-validity rules are supposed to come from observed formats rather than assumed
-ones.
+**Phase 2 — DQ rules.** Yours to decide before any code: every rule in
+`config/dq_rules.yaml`, and which fields are mandatory. Problems 1 and 5 in the
+list name the two decisions that block the phase — repair versus flag for invalid
+state codes, and whether `date_of_birth` is mandatory when 155 records lack it.
 
 ---
 
