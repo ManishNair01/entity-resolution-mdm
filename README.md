@@ -12,7 +12,7 @@ Australian person records over 2,000 true entities), with
 [Splink](https://moj-analytical-services.github.io/splink/) for probabilistic
 matching and DuckDB for storage.
 
-> **Status: work in progress — Phase 0 of 7.** This README is a placeholder.
+> **Status: work in progress — Phase 1 of 7 (data profiling) done.** This README is a placeholder.
 > Results, the approach diagram, and limitations land in Phase 7. The plan is in
 > [`project-1-entity-resolution-roadmap.md`](project-1-entity-resolution-roadmap.md);
 > every rule will be written in plain English in `RULEBOOK.md`.
