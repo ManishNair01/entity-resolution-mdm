@@ -13,7 +13,7 @@ import duckdb
 import pytest
 
 import run_pipeline
-from src import ingest
+from src import ingest, profile
 
 
 def fingerprint(db_path) -> tuple[int, str]:
@@ -28,12 +28,18 @@ def fingerprint(db_path) -> tuple[int, str]:
 
 @pytest.fixture(scope="module")
 def ingested_db(tmp_path_factory, request):
-    """Ingest into a throwaway DuckDB file, leaving the project's own outputs alone."""
+    """Ingest into a throwaway DuckDB file, leaving the project's own outputs alone.
+
+    Every output path any stage writes to is redirected here, including the
+    profile report; otherwise running `pytest` would overwrite `reports/profile.md`.
+    """
     tmp = tmp_path_factory.mktemp("mdm")
     monkeypatch = pytest.MonkeyPatch()
     request.addfinalizer(monkeypatch.undo)
     monkeypatch.setattr(ingest, "METRICS_PATH", tmp / "metrics.json")
     monkeypatch.setattr(ingest, "RAW_SNAPSHOT_PATH", tmp / "febrl3.csv")
+    monkeypatch.setattr(profile, "REPORT_PATH", tmp / "profile.md")
+    monkeypatch.setattr(profile, "PROBLEMS_PATH", tmp / "problems_observed.md")
 
     db_path = tmp / "mdm.duckdb"
     metrics = ingest.run(db_path)
@@ -90,3 +96,16 @@ def test_true_entity_count_matches_originals(ingested_db):
         metrics["ingest.record_count"]
         == metrics["ingest.original_record_count"] + metrics["ingest.duplicate_record_count"]
     )
+
+
+def test_pipeline_does_not_write_project_reports(ingested_db):
+    """A test run must write its report to the temp directory, not `reports/`."""
+    db_path, _ = ingested_db
+    project_report = profile.PROJECT_ROOT / "reports" / "profile.md"
+    before = project_report.stat().st_mtime_ns if project_report.exists() else None
+
+    run_pipeline.run(db_path)
+
+    after = project_report.stat().st_mtime_ns if project_report.exists() else None
+    assert after == before, "pipeline run under test touched reports/profile.md"
+    assert profile.REPORT_PATH.exists(), "report was not written to the temp directory"

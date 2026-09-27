@@ -205,11 +205,21 @@ def run(db_path: Path | str = DEFAULT_DB_PATH, seed: int = RANDOM_SEED) -> dict:
         )
         con.unregister("raw_frame")
 
+    cluster_sizes = frame.groupby("true_cluster_id").size()
+
     metrics = {
         "ingest.record_count": int(len(frame)),
         "ingest.true_entity_count": int(frame["true_cluster_id"].nunique()),
         "ingest.original_record_count": int(frame["rec_id"].str.endswith("-org").sum()),
         "ingest.duplicate_record_count": int(frame["rec_id"].str.contains("-dup-").sum()),
+        # Keyed by cluster size (as a string, for JSON) -> number of clusters of
+        # that size. This is the only place the pipeline may group by the
+        # ground-truth entity (AGENTS.md hard rule 1), so Phase 1 profiling
+        # reads this value back from metrics.json rather than recomputing it.
+        "ingest.cluster_size_distribution": {
+            str(int(size)): int(count)
+            for size, count in cluster_sizes.value_counts().sort_index().items()
+        },
     }
     write_metrics(metrics)
     return metrics
