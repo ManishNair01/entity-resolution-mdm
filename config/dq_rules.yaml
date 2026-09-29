@@ -1,0 +1,294 @@
+# Data-quality rules and standardization steps.
+#
+# Owner-authored (AGENTS.md: "DQ rules and mandatory fields" are an owner-owned
+# decision). The rules below record the owner's approved Phase 2 policy. Some of
+# their check and transform types are contracts for the Phase 2 plumbing and are
+# implemented by the agent after the owner advances the phase.
+#
+# The engine reads this file and nothing else, so adding, changing or removing a
+# rule needs no code change (AGENTS.md architecture rule 2). Adding a new *kind*
+# of check does.
+#
+# -----------------------------------------------------------------------------
+# rules: one entry per rule
+# -----------------------------------------------------------------------------
+#   id           short stable identifier, e.g. DQ-C-001. It names the rule in
+#                metrics.json and in the dq_violations tables, so don't renumber
+#                a rule that has already been reported on.
+#   field        column the rule reads. In the pass over std_customers the engine
+#                reads `<field>_std` instead when that column exists, so the same
+#                rule gives the before and after counts.
+#   dimension    completeness | validity | standardization
+#   description  one line of plain English; the same sentence goes in RULEBOOK.md.
+#   severity     error | warning. Recorded, never acted on: no row is dropped.
+#   check        one of the types below.
+#
+# Check types (src/dq_rules.py, CHECK_TYPES):
+#   {type: not_null}
+#   {type: not_blank}
+#   {type: in_set, values: [...], case_sensitive: false}
+#   {type: matches_regex, pattern: '^[0-9]{4}$'}
+#   {type: length_between, min: 4, max: 4}
+#   {type: parses_as_date, format: '%Y%m%d'}
+#
+# NULL convention: every check except not_null passes on NULL. A missing value is
+# then one completeness violation rather than one violation per validity rule that
+# happens to read the same field. A field is mandatory only if you give it a
+# not_null rule.
+#
+# Shape of an entry (commented out — this is documentation, not an active rule):
+#   - id: DQ-V-002
+#     field: state
+#     dimension: validity
+#     description: State must be an Australian state or territory code.
+#     severity: error
+#     check:
+#       type: in_set
+#       values: [nsw, vic, qld, sa, wa, tas, nt, act]
+
+
+rules:
+  - id: DQ-C-001
+    field: surname
+    dimension: completeness
+    description: Surname is a primary identity feature and should be present.
+    severity: warning
+    check:
+      type: present
+
+  - id: DQ-C-002
+    field: date_of_birth
+    dimension: completeness
+    description: Date of birth is a primary identity feature and should be present.
+    severity: warning
+    check:
+      type: present
+
+  - id: DQ-C-003
+    field: postcode
+    dimension: completeness
+    description: Postcode is a primary identity feature and should be present.
+    severity: warning
+    check:
+      type: present
+
+  - id: DQ-C-004
+    field: identity_evidence
+    dimension: completeness
+    description: A usable record must have three identity signals, with soc_sec_id replacing at most one unavailable primary feature.
+    severity: error
+    check:
+      type: minimum_identity_evidence
+      minimum_signals: 3
+      max_substitutes: 1
+      primary:
+        - field: surname
+          usable_when:
+            type: present
+        - field: date_of_birth
+          usable_when:
+            type: parses_as_date
+            format: "%Y%m%d"
+            standardized_format: "%Y-%m-%d"
+        - field: postcode
+          usable_when:
+            type: matches_regex
+            pattern: '^[0-9]{4}$'
+      substitutes:
+        - field: soc_sec_id
+          usable_when:
+            type: matches_regex
+            pattern: '^[0-9]{7}$'
+
+  - id: DQ-V-001
+    field: date_of_birth
+    dimension: validity
+    description: Date of birth must be a real calendar date in the expected format.
+    severity: error
+    check:
+      type: parses_as_date
+      format: "%Y%m%d"
+      standardized_format: "%Y-%m-%d"
+
+  - id: DQ-V-002
+    field: postcode
+    dimension: validity
+    description: Postcode must contain exactly four digits.
+    severity: error
+    check:
+      type: matches_regex
+      pattern: '^[0-9]{4}$'
+
+  - id: DQ-V-003
+    field: soc_sec_id
+    dimension: validity
+    description: Social security identifier must contain exactly seven digits.
+    severity: error
+    check:
+      type: matches_regex
+      pattern: '^[0-9]{7}$'
+
+  - id: DQ-V-004
+    field: state
+    dimension: validity
+    description: A supplied state must be an accepted Australian state or territory code.
+    severity: warning
+    check:
+      type: in_set
+      values: [nsw, vic, qld, sa, wa, tas, nt, act]
+      case_sensitive: false
+
+
+
+
+# -----------------------------------------------------------------------------
+# standardization: steps applied in order, per field
+# -----------------------------------------------------------------------------
+# Each entry adds one `<field>_std` column to std_customers and leaves the
+# original column untouched, so every comparison can be made against both.
+#
+# Transform types (src/standardize.py, TRANSFORMS):
+#   {type: trim}
+#   {type: collapse_whitespace}
+#   {type: lowercase}
+#   {type: strip_non_digits}
+#   {type: normalize_date, from_format: '%Y%m%d', to_format: '%Y-%m-%d', on_error: keep}
+#   {type: map_values, mapping: {nws: nsw}}            whole value, matched exactly
+#   {type: replace_words, mapping: {vlge: village}}    whole words inside the value
+#
+# map_values matches the value as it stands at that point in the chain, so put
+# trim and lowercase before it. normalize_date's on_error is `keep` (leave the
+# unparseable value alone) or `null`.
+#
+# The pitfall the roadmap names: standardization must not merge values that could
+# belong to different people. Normalize representation, don't correct identity.
+#
+# Shape of an entry (commented out):
+#   - field: state
+#     steps:
+#       - {type: trim}
+#       - {type: lowercase}
+
+
+standardization:
+  - field: given_name
+    steps:
+      - {type: trim}
+      - {type: collapse_whitespace}
+      - {type: lowercase}
+
+  - field: surname
+    steps:
+      - {type: trim}
+      - {type: collapse_whitespace}
+      - {type: lowercase}
+
+  - field: address_1
+    steps:
+      - {type: trim}
+      - {type: collapse_whitespace}
+      - {type: lowercase}
+      - type: replace_phrases
+        mapping:
+          "st reet": street
+      - type: replace_words
+        mapping:
+          vlge: village
+          locn: location
+          mt: mount
+          hse: house
+          flr: floor
+          unt: unit
+      - type: replace_contextual_word
+        word: st
+        at_start: saint
+        otherwise: street
+
+  - field: address_2
+    steps:
+      - {type: trim}
+      - {type: collapse_whitespace}
+      - {type: lowercase}
+      - type: replace_phrases
+        mapping:
+          "st reet": street
+      - type: replace_words
+        mapping:
+          vlge: village
+          locn: location
+          mt: mount
+          hse: house
+          flr: floor
+          unt: unit
+      - type: replace_contextual_word
+        word: st
+        at_start: saint
+        otherwise: street
+
+  - field: suburb
+    steps:
+      - {type: trim}
+      - {type: collapse_whitespace}
+      - {type: lowercase}
+
+  - field: state
+    steps:
+      - {type: trim}
+      - {type: lowercase}
+      - type: map_values
+        mapping:
+          nws: nsw
+          nsq: nsw
+          nss: nsw
+          nxw: nsw
+          nhw: nsw
+          nse: nsw
+          nsh: nsw
+          nsy: nsw
+          vci: vic
+          vid: vic
+          sic: vic
+          viv: vic
+          vix: vic
+          vkc: vic
+          qdl: qld
+          qls: qld
+          qlf: qld
+          qkd: qld
+          qle: qld
+          aw: wa
+          wq: wa
+          ws: wa
+          ss: sa
+          as: sa
+          nf: nt
+          sct: act
+          tsa: tas
+
+  - field: date_of_birth
+    steps:
+      - type: normalize_date
+        from_format: "%Y%m%d"
+        to_format: "%Y-%m-%d"
+        on_error: null
+
+  - field: postcode
+    steps:
+      - {type: trim}
+
+  - field: soc_sec_id
+    steps:
+      - {type: trim}
+
+age_review:
+  source_field: date_of_birth
+  standardized_field: date_of_birth_std
+  reference_date: "2026-09-22"
+  output_table: age_review
+  initial_status: pending
+  bands:
+    - reason: minor_verification
+      minimum_age: 0
+      maximum_age: 17
+    - reason: age_100_plus
+      minimum_age: 100

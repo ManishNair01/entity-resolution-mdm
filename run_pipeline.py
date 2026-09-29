@@ -1,16 +1,22 @@
 """Run every pipeline stage end to end: raw data -> scorecard.
 
-Phases 0-1: ingest, then profile. Later phases append to `STAGES` in order.
-The guard test `tests/test_raw_untouched.py` runs this module, so it must stay
-runnable against an arbitrary DuckDB path.
+Phases 0-2: ingest, profile, then the data-quality, standardization and age-review stages.
+Later phases append to `STAGES` in order. The guard test
+`tests/test_raw_untouched.py` runs this module, so it must stay runnable against
+an arbitrary DuckDB path.
+
+The DQ rules are evaluated twice, before and after standardization, which is what
+Phase 2 asks to be reported. Each pass writes its own table, so neither the
+before nor the after counts can be overwritten by the other.
 """
 
 from __future__ import annotations
 
 import argparse
+from functools import partial
 from pathlib import Path
 
-from src import ingest, profile
+from src import age_review, dq_rules, ingest, profile, standardize
 
 DEFAULT_DB_PATH = ingest.DEFAULT_DB_PATH
 
@@ -18,6 +24,10 @@ DEFAULT_DB_PATH = ingest.DEFAULT_DB_PATH
 STAGES = [
     ("ingest", ingest.run),
     ("profile", profile.run),
+    ("dq_raw", dq_rules.run_raw),
+    ("standardize", standardize.run),
+    ("dq_std", partial(dq_rules.run_for, source_table=standardize.TABLE_NAME, stage="std")),
+    ("age_review", age_review.run),
 ]
 
 
