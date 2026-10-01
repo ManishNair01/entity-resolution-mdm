@@ -23,8 +23,8 @@ from typing import Any
 
 import duckdb
 
-from src.dq_rules import CONFIG_PATH, STAGE_PATTERN, load_config, sql_literal
-from src.ingest import DEFAULT_DB_PATH, write_metrics
+from src.dq_rules import CONFIG_PATH, STAGE_PATTERN, load_config, sql_literal, table_columns
+from src.ingest import DEFAULT_DB_PATH, TABLE_NAME as RAW_TABLE, remove_metrics, write_metrics
 from src.standardize import TABLE_NAME as STD_TABLE
 
 REQUIRED_KEYS = (
@@ -36,6 +36,18 @@ REQUIRED_KEYS = (
     "bands",
 )
 IDENTIFIER_PATTERN = STAGE_PATTERN
+
+METRIC_PREFIX = "age_review."
+OUTPUT_TABLE_METRIC = "age_review.output_table"
+DEFAULT_OUTPUT_TABLE = "age_review"
+OUTPUT_COLUMNS = {"unique_id", "calculated_age", "calculation_date", "reason", "status"}
+
+# The output is written with CREATE OR REPLACE, so a configured name that belongs to
+# another stage would silently destroy that stage's table: `raw_customers` most
+# seriously (AGENTS.md architecture rule 1), but equally `std_customers`, whose
+# columns this stage reads, or a violations table. Those names are refused outright.
+PROTECTED_TABLES = (RAW_TABLE, STD_TABLE)
+PROTECTED_PREFIXES = ("dq_violations_",)
 
 
 def _identifier(value: Any, what: str) -> str:
@@ -53,7 +65,12 @@ def validate_config(section: Any) -> dict[str, Any]:
         raise ValueError(f"age_review is missing {', '.join(missing)}")
 
     _identifier(section["standardized_field"], "standardized_field")
-    _identifier(section["output_table"], "output_table")
+    output = _identifier(section["output_table"], "output_table")
+    if output in PROTECTED_TABLES or output.startswith(PROTECTED_PREFIXES):
+        raise ValueError(
+            f"age_review: output_table {output!r} would overwrite another stage's table; "
+            "choose a name no other stage writes"
+        )
     try:
         date.fromisoformat(str(section["reference_date"]))
     except ValueError as error:
@@ -90,12 +107,41 @@ def band_condition(band: dict[str, Any]) -> str:
     return " AND ".join(parts)
 
 
+def _drop_stale_outputs(
+    con: duckdb.DuckDBPyConnection, previous: dict, keep: str | None
+) -> None:
+    """Drop the table an earlier run wrote when this run no longer writes it.
+
+    Candidates are the name the earlier run recorded in the metrics file and the
+    default name, minus `keep`. A name is dropped only if it is a plain identifier
+    and the table has exactly this stage's columns, so a metrics file edited by hand
+    can never point this at another stage's table.
+    """
+    candidates = {previous.get(OUTPUT_TABLE_METRIC), DEFAULT_OUTPUT_TABLE} - {keep, None}
+    for name in sorted(candidates):
+        if (
+            isinstance(name, str)
+            and IDENTIFIER_PATTERN.match(name)
+            and table_columns(con, name) == OUTPUT_COLUMNS
+        ):
+            con.execute(f"DROP TABLE {name}")
+
+
 def run(db_path: Path | str = DEFAULT_DB_PATH, config_path: Path | str = CONFIG_PATH) -> dict:
-    """Write the age-review table from `std_customers` and return this stage's metrics."""
+    """Write the age-review table from `std_customers` and return this stage's metrics.
+
+    With no `age_review:` section the stage is off, and it also removes what an
+    earlier run left behind, so a stale table or stale `age_review.*` metrics cannot
+    be mistaken for the current result.
+    """
     config = load_config(config_path)
     if not config.get("age_review"):
         # No section means the owner has not asked for this review; that is not an
         # error, and the metrics say so rather than implying zero flagged records.
+        previous = remove_metrics(METRIC_PREFIX)
+        if Path(db_path).exists():
+            with duckdb.connect(str(db_path)) as con:
+                _drop_stale_outputs(con, previous, keep=None)
         return {}
     section = validate_config(config["age_review"])
 
@@ -112,6 +158,16 @@ def run(db_path: Path | str = DEFAULT_DB_PATH, config_path: Path | str = CONFIG_
     )
 
     with duckdb.connect(str(db_path)) as con:
+        existing = table_columns(con, table)
+        if existing and existing != OUTPUT_COLUMNS:
+            # Whatever the name is, it is not an earlier age-review output, so
+            # replacing it would destroy something this stage did not create.
+            raise ValueError(
+                f"age_review: table {table!r} already exists and is not an age-review "
+                "output; refusing to replace it"
+            )
+        _drop_stale_outputs(con, remove_metrics(METRIC_PREFIX), keep=table)
+
         # `date_sub('year', ...)` counts completed years; `date_diff` would count
         # calendar-year boundaries and put a December birthday a year too old.
         con.execute(
@@ -148,6 +204,7 @@ def run(db_path: Path | str = DEFAULT_DB_PATH, config_path: Path | str = CONFIG_
         }
 
     metrics = {
+        OUTPUT_TABLE_METRIC: table,
         "age_review.reference_date": reference.isoformat(),
         "age_review.flagged_count": int(total),
         # A band that flagged nobody is a result, so it is reported as zero.

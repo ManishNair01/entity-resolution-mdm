@@ -4,7 +4,7 @@ Things the agent needs from the owner, and the decisions already made. The agent
 adds to this file whenever it hits a choice that belongs to the owner
 (`AGENTS.md`, "Owner-owned decisions"), or makes an assumption to keep moving.
 
-**Owner:** Manish Manoj Nair · **Last updated:** 2026-09-29 (Phase 2 plumbing implemented for the owner's rules; age-band sizing raised)
+**Owner:** Manish Manoj Nair · **Last updated:** 2026-10-01 (Phase 2 review findings fixed and verified; items 12 and 13 still await the owner)
 
 - **Open** — waiting on you. The agent has assumed something in the meantime;
   each entry says what.
@@ -15,20 +15,19 @@ adds to this file whenever it hits a choice that belongs to the owner
 
 ## Open
 
-### 8. Every Phase 2 rule, and which fields are mandatory
+### 8. Every Phase 2 rule, and which fields are mandatory — settled; one piece belongs to Phase 3
 
 Discussion on 2026-09-28: first define what "usable" means for this project
 (retained for identity resolution, eligible for automatic matching, or ready for
-a business use such as mailing). These need not share mandatory fields. No
-policy has been selected; the current phase remains 1 in `AGENTS.md`.
+a business use such as mailing). These need not share mandatory fields. The
+policy was selected on 2026-09-29, below.
 
 Working definition from the owner on 2026-09-29: a usable customer record must
 contain enough information to clearly identify and differentiate a unique
 customer, without relying on unnecessary features that make identification more
-burdensome. This is a design principle, not yet an executable completeness rule.
-Still open: whether usability means admission to matching or permission to
-auto-merge, and which minimum field combinations supply enough independent
-identity evidence.
+burdensome. The owner's decision below turns this into the executable rule:
+usability is admission to matching, and the minimum is three independent
+identity signals.
 
 Owner decision on 2026-09-29: a missing `given_name` does not by itself make a
 record ineligible for matching. A record containing surname, date of birth and
@@ -39,23 +38,23 @@ minimum set is the three primary features `surname`, `date_of_birth` and
 secondary feature cannot replace two missing primary features, a record with two
 missing primary features is ineligible under this rule. An impossible date of
 birth counts as unavailable in the same way as a missing value: preserve and
-flag the source value, but exclude it from identity evidence. The DQ rules that
-flag each condition separately and the exact treatment of an ineligible record
-remain open.
+flag the source value, but exclude it from identity evidence.
 
-`config/dq_rules.yaml` holds the schema, the documented check types and two empty
-lists. The rules are yours (`AGENTS.md`: "DQ rules and mandatory fields"), and the
-starting material is P1–P8 in `reports/problems_observed.md`.
+*Status, reconciled 2026-10-01.* The rules are written. `config/dq_rules.yaml`
+holds DQ-C-001 to DQ-C-004 and DQ-V-001 to DQ-V-004: each condition is flagged by
+its own rule, and DQ-C-004 decides record-level eligibility. The rest of the
+policy is recorded under Decided (matching eligibility, severity, optional
+fields, identifier errors). The starting material was P1–P8 in
+`reports/problems_observed.md`.
 
-Completeness needs the decision the roadmap asks you to justify: **which fields
-make a customer record usable?** P3 shows nulls in `given_name` (3.12%),
-`surname` (1.58%), `date_of_birth` (3.10%) and `state` (1.70%), with 6 records
-carrying neither name.
+*Still open, and not needed to close Phase 2:* the exact treatment of a record
+that fails DQ-C-004. Phase 3 has to say what the matching input does with it:
+excluded from candidate pairs, kept but never auto-merged, or routed to review.
+It is listed in `WORKING-PLAN.md` as a Phase 3 input and gets its own Open entry
+when Phase 3 starts.
 
-*Assumed:* nothing. With both lists empty the pipeline runs and reports zero
-rules, zero violations and zero standardized fields — an honest empty result, not
-a clean dataset. Nothing downstream is blocked until Phase 3 wants standardized
-values to match on.
+*Assumed:* nothing. DQ-C-004 only flags the record; it stays in `std_customers`
+and nothing downstream drops it.
 
 ### 11. What does the stricter verification process do for extreme ages?
 
@@ -137,11 +136,13 @@ initial `pending` status. The table references rather than duplicates the
 customer record. Whether a pending review blocks automatic merging is deferred
 to the Phase 5 threshold decision.
 
-Still open: which evidence the verification process examines, whether a flagged
-record remains eligible for ordinary matching while review is pending, and what
-review outcomes are recorded. An extreme age alone does not establish death,
-staleness or identity fraud; those are possible investigation hypotheses rather
-than DQ findings.
+Deferred, none of it needed for Phase 2 (reconciled 2026-10-01: eligibility for
+ordinary matching while review is pending is settled above and in Decided, so it
+is no longer listed as open): whether a pending review blocks *automatic merging*
+(Phase 5, with the thresholds); which evidence the 100+ pathway examines; and
+what review outcomes are recorded (before any review workflow is built). An
+extreme age alone does not establish death, staleness or identity fraud; those
+are possible investigation hypotheses rather than DQ findings.
 
 External research supports the threshold as a review signal. AIHW estimates
 6,181 Australians aged 100+ in 2022, or 238 per million residents (0.0238%). The
@@ -172,6 +173,10 @@ document that the review rule is exercised only by unit tests on the minor band.
 
 - `present` is the one completeness check that fails on NULL; a blank
   (whitespace-only) string also fails it. Every other check still passes NULL.
+  A string that is blank after trimming stays an empty string rather than becoming
+  NULL, so it fails `present` and is *also* a value to the validity rules (a blank
+  postcode would raise DQ-C-003 and DQ-V-002). Not observed: a query of
+  `raw_customers` on 2026-10-01 found no blank string in any column.
 - `DQ-C-004` (`minimum_identity_evidence`) counts a signal as usable only when
   the value is non-NULL **and** passes its `usable_when` check. `soc_sec_id`
   contributes at most `max_substitutes` signals. The value recorded in
@@ -192,14 +197,69 @@ document that the review rule is exercised only by unit tests on the minor band.
   without `present`, `minimum_identity_evidence`, `replace_phrases` or
   `replace_contextual_word`. The config is owner-authored, so it was not edited.
 
+*Added 2026-10-01 while fixing the review findings. These are how the engine reads
+policy you already settled; none changes a rule's meaning on this data (a run
+before and after the fix gave the same metrics apart from one new config echo,
+`age_review.output_table`).*
+
+- **"Whitespace" means any whitespace, not only spaces.** Trim, collapse and the
+  `present` / `not_blank` / `in_set` checks all use ASCII whitespace plus Unicode
+  separators such as the non-breaking space (`dq_rules.WHITESPACE`). DuckDB's own
+  `TRIM` strips spaces only, so a tab-padded value used to survive "trim" and a
+  tab-only surname used to count as present.
+- **A date is valid only if it is exactly what the format writes.** DuckDB's
+  parser reads `1970011` as 1970-01-01 and tolerates padding, which would invent a
+  date the source never held. `DQ-V-001`, the DOB signal in `DQ-C-004` and
+  `normalize_date` now accept a value only if re-formatting the parsed date
+  reproduces it, so a seven-digit or padded DOB is invalid and becomes NULL.
+- **A padded DOB is invalid, not trimmed.** The config has no `trim` step before
+  `normalize_date` on `date_of_birth`, and the policy says an unparseable source
+  becomes NULL, so `' 19700101'` is treated as unusable. Not observed in the data
+  (every DOB is NULL or exactly eight digits). Add a `trim` step to the DOB chain
+  if you would rather accept padded dates.
+- **Age-review output is protected.** `output_table` may not be `raw_customers`,
+  `std_customers` or any `dq_violations_*` table, and the stage refuses to replace
+  an existing table that does not have its own columns (so it cannot overwrite a
+  later phase's table either). Before the fix, `output_table: raw_customers`
+  silently replaced the raw table.
+- **A switched-off or renamed age review cleans up after itself.** With no
+  `age_review:` section the stage drops its earlier output table and removes its
+  `age_review.*` metrics; renaming the output drops the old table. It only drops a
+  table that has exactly the age-review columns, whatever name a metrics file
+  claims. New helper: `ingest.remove_metrics`.
+- `RULEBOOK.md` was not edited (owner-written). Its §1.2 and §1.4 say "a real
+  calendar date in `YYYYMMDD`" and "trim surrounding whitespace"; the engine now
+  enforces those literally. Add a sentence if you want strictness spelled out.
+
 ---
 
 ## Needed before the next phase
 
+Review update (2026-09-29): targeted review reproduced five gaps in raw-table
+preservation, age-review output name protection, strict DOB format validation,
+surrounding-whitespace handling, and stale outputs when age review is disabled.
+**Fixed 2026-10-01**, each reproduced first and now covered by a regression test
+that fails against the old code (the tests are in `tests/test_dq_rules.py`,
+`tests/test_standardize.py` and `tests/test_phase2_rules_config.py`; the two guard
+tests were not touched). The behaviour is described under item 13, "Added
+2026-10-01". These were implementation findings against existing contracts; no
+owner policy was selected or changed.
+
+Planning update (2026-09-29): `WORKING-PLAN.md` sequences all phases and their
+owner/agent handoffs. Planning does not advance the current phase or settle any
+open policy. Reconciliation done 2026-10-01: item 8's historical text now matches
+the populated config and Phase 2, and the stale item 9 reference is gone (the
+state-correction decision is under Decided). Item 11's auto-merge question
+belongs to Phase 5; broader review-workflow details must be settled before their
+implementation. Future phase decisions are listed in the working plan and should
+receive individual Open entries when those phases require owner input. No new
+default is assumed.
+
 **Phase 2 — DQ rules.** The engine, check types, transforms, age-review stage and
 their tests are in place (`src/dq_rules.py`, `src/standardize.py`,
-`src/age_review.py`). Remaining for you: review items 12 and 13, the P2
-correction call (item 9), and confirm `RULEBOOK.md` section 1.
+`src/age_review.py`). Remaining for you: answer items 12 and 13 (the age-band
+presentation, and whether to keep or overrule the agent's assumptions), and
+confirm `RULEBOOK.md` section 1. Then advance the phase in `AGENTS.md`.
 
 ---
 
@@ -257,9 +317,9 @@ Each is a decision the agent made to keep moving. Overrule any of them.
 
 Phase 2 (`src/dq_rules.py`, `src/standardize.py`):
 
-- **NULL passes every check except `not_null`.** A missing value is one
-  completeness violation, not one for every validity rule that reads the field.
-  A field is mandatory only if you give it a `not_null` rule.
+- **NULL passes every check except `not_null` and `present`.** A missing value is
+  one completeness violation, not one for every validity rule that reads the
+  field. A field is mandatory only if you give it a `not_null` or `present` rule.
 - **The DQ stage never changes data.** It records the record, rule, field,
   dimension, severity and offending value; no row is dropped and no value is
   corrected. Correction is standardization, and it is opt-in per field.
@@ -277,6 +337,7 @@ Phase 2 (`src/dq_rules.py`, `src/standardize.py`):
   decides what happens if that changes.
 - `normalize_date` uses `on_error: null` for DOB. The original source column and
   raw violation preserve the evidence, while the standardized NULL ensures an
-  impossible date cannot contribute matching evidence.
+  impossible date cannot contribute matching evidence. It parses strictly: only a
+  value exactly in `from_format` becomes a date.
 - `replace_words` matches whole words and applies its mapping in the order
   written, so the output stays reproducible (architecture rule 4).
