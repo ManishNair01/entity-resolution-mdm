@@ -4,7 +4,7 @@ Things the agent needs from the owner, and the decisions already made. The agent
 adds to this file whenever it hits a choice that belongs to the owner
 (`AGENTS.md`, "Owner-owned decisions"), or makes an assumption to keep moving.
 
-**Owner:** Manish Manoj Nair · **Last updated:** 2026-10-01 (item 12 accepted; DOB trimming and display-only NULL placeholder decided; other item 13 assumptions remain open)
+**Owner:** Manish Manoj Nair · **Last updated:** 2026-10-01 (items 12 and 13 resolved; Phase 3 items 15 and 17 still open)
 
 - **Open** — waiting on you. The agent has assumed something in the meantime;
   each entry says what.
@@ -149,12 +149,22 @@ research is summarized in `reports/Centenarian prevalence and review.md`.
 Project-specific age counts and comparison ratios remain `[TBD]` in that report
 until the pipeline produces them in `reports/metrics.json` during a run.
 
-### 13. Agent choices made while implementing the Phase 2 rules — partly resolved
+### 13. Agent choices made while implementing the Phase 2 rules — resolved 2026-10-01
 
 Owner update (2026-10-01): keep the reference date 2026-09-22; trim padded DOBs
 before strict parsing; display NULL as `[Missing]` while retaining database NULLs.
 These choices are recorded under Decided. No acceptance of the remaining
 assumptions is implied, including future-DOB handling or blank-to-NULL conversion.
+
+**Superseded 2026-10-01, later the same day (owner, in chat):** the owner
+accepted every remaining assumption below as written. That includes the two the
+earlier note singled out: a DOB after the reference date stays in no band and no
+rule flags it, and a string that is blank after trimming stays an empty string
+rather than becoming NULL. The assumptions are kept below as the record of what
+was accepted; the acceptance is under Decided. Only the Phase 2 assumptions in
+this item are covered. The Phase 3 assumptions (items 15 and 17, and the Phase 3
+list under "Assumptions recorded in code") are separate and are not accepted by
+this.
 
 *Assumed, overrule any of them:*
 
@@ -347,10 +357,9 @@ default is assumed.
 
 **Phase 2 — DQ rules.** The engine, check types, transforms, age-review stage and
 their tests are in place (`src/dq_rules.py`, `src/standardize.py`,
-`src/age_review.py`). Item 12 is now resolved. Remaining for you: review the unresolved parts of item
-13 (whether to keep or overrule the other assumptions), and
-confirm `RULEBOOK.md` section 1. (The owner has since moved the phase to 3 without
-waiting for these; the unresolved part of item 13 remains open.)
+`src/age_review.py`). Items 12 and 13 are now resolved. Remaining for you: confirm
+`RULEBOOK.md` section 1. (The owner moved the phase to 3 before this was done, so
+it is still outstanding.)
 
 **Phase 3 — baseline and blocking.** The pair engine, the baseline and blocking
 stages, both config files (with the owner's adopted roadmap examples) and their
@@ -367,6 +376,7 @@ can be measured (item 17); decide how a flagged-invalid value becomes unavailabl
 
 | Date | Decision | Notes |
 |---|---|---|
+| 2026-10-01 | Accept all remaining item 13 assumptions as written | Closes item 13. Accepted as written: `present` fails on NULL and blank; a string blank after trimming stays an empty string (not NULL); `DQ-C-004` counts a signal only when non-NULL and valid, with `soc_sec_id` capped at `max_substitutes`; impossible DOBs are reclassified as missing in the cleaned pass; `on_error: null` loads as YAML null; a DOB after the reference date is in no band and flagged by no rule; `age_review` is a separate stage after `dq_std`; the `dq_rules.yaml` header is not updated for the newer check types. Also accepted, from the 2026-10-01 review fixes: whitespace means any whitespace, dates must exactly match the format, the age-review output name is protected, and a switched-off or renamed age review cleans up its table and metrics. Phase 3 assumptions are not covered. |
 | 2026-10-01 | Item 12 resolved: retain age bands as a policy demonstration | Document the synthetic-data limitation in README; minor routing is covered by unit tests. Keep the reference date 2026-09-22. No threshold change. |
 | 2026-10-01 | Trim padded DOBs before strict parsing (item 13) | Add trim before normalize_date; preserve raw DOBs. Raw format violations remain visible, while valid trimmed dates become usable in standardized data. Internal corruption remains invalid. |
 | 2026-10-01 | Display NULL values as `[Missing]` (item 13) | Display-only placeholder; keep database NULLs and JSON nulls. Empty-string policy is unchanged. Applied to the existing profile value renderer and unavailable length values; future review screens must use the same display convention. |
@@ -402,7 +412,7 @@ can be measured (item 17); decide how a flagged-invalid value becomes unavailabl
 | 2026-09-29 | Age calculations use the fixed date 2026-09-22 | Calculate completed age against the same reference date used for synthetic metadata. Do not use the pipeline run date, because review-band membership must be reproducible. |
 | 2026-09-29 | Age review runs alongside entity matching | Keep valid DOBs as identity evidence and keep flagged records eligible for matching. Write a separate reference-based review table with `unique_id`, calculated age, fixed calculation date, reason and initial `pending` status. Decide any auto-merge restriction in Phase 5. |
 | 2026-09-29 | `metrics.json` is sufficient Phase 2 reporting | Store before/after violation counts under the existing `dq.raw.*` and `dq.std.*` keys. Do not add a separate Markdown DQ report; the readable scorecard belongs to Phase 7. |
-| 2026-10-01 | Phase 3 is the current phase | Confirmed in chat after PR #8 merged; `AGENTS.md` now says "Current phase: 3". Item 12 was resolved the same day; the rest of item 13 stays Open. |
+| 2026-10-01 | Phase 3 is the current phase | Confirmed in chat after PR #8 merged; `AGENTS.md` now says "Current phase: 3". Items 12 and 13 were both resolved the same day. |
 | 2026-10-01 | Records failing DQ-C-004 are included in matching and never auto-merged | Phase 3 does not gate the baseline or blocking on DQ-C-004. Phase 5 routes any pair involving such a record to review; the thresholds decide the rest. |
 | 2026-10-01 | `evaluate.py` is created as a stub only | Two signatures with docstrings and `NotImplementedError`; the owner writes the bodies. Pair-table contract: columns `unique_id_l`, `unique_id_r`, canonical (`l < r`), no self-pairs, no duplicates, no ground truth. |
 | 2026-10-01 | The roadmap's example rules are the Phase 3 candidates | Baseline variant 1: standardized surname + date of birth + postcode equal. Blocking candidates: same surname; same date of birth; same postcode and first letter of given name. Baseline variants 2–3, the pair-completeness target and the final blocking set stay open (item 17). |
