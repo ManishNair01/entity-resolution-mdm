@@ -52,15 +52,26 @@ def load_variants(
     return out
 
 
-def run(db_path: Path | str = DEFAULT_DB_PATH, config_path: Path | str = CONFIG_PATH) -> dict:
-    """Write one pair table per variant and return this stage's metrics."""
+def run(
+    db_path: Path | str = DEFAULT_DB_PATH,
+    config_path: Path | str = CONFIG_PATH,
+    source_table: str = STD_TABLE,
+) -> dict:
+    """Write one pair table per variant and return this stage's metrics.
+
+    The pipeline and CLI read matching_customers. Direct callers retain the
+    checked std_customers default for compatibility; invalid evidence still
+    raises before output changes.
+    """
+    if source_table not in {STD_TABLE, "matching_customers"}:
+        raise ValueError("source_table must be std_customers or matching_customers")
     with duckdb.connect(str(db_path)) as con:
-        columns = table_columns(con, STD_TABLE)
+        columns = table_columns(con, source_table)
         if not columns:
-            raise ValueError(f"table {STD_TABLE!r} does not exist in {db_path}")
+            raise ValueError(f"table {source_table!r} does not exist in {db_path}")
         variants = load_variants(config_path, columns)
         pairs.assert_inputs_usable(
-            con, {field for _, keys in variants for field, _ in keys}
+            con, {field for _, keys in variants for field, _ in keys}, source_table
         )
 
         # Everything above can refuse; only now is the previous run's output replaced.
@@ -68,7 +79,7 @@ def run(db_path: Path | str = DEFAULT_DB_PATH, config_path: Path | str = CONFIG_
         pairs.drop_tables_with_prefix(con, TABLE_PREFIX)
         matched = {
             variant_id: pairs.write_pairs(
-                con, f"{TABLE_PREFIX}{variant_id}", pairs.pairs_select(STD_TABLE, keys)
+                con, f"{TABLE_PREFIX}{variant_id}", pairs.pairs_select(source_table, keys)
             )
             for variant_id, keys in variants
         }
@@ -88,7 +99,7 @@ def main() -> None:
     parser.add_argument("--config", default=str(CONFIG_PATH), help="path to baseline.yaml")
     args = parser.parse_args()
 
-    for key, value in run(args.db, args.config).items():
+    for key, value in run(args.db, args.config, source_table="matching_customers").items():
         print(f"{key}: {value}")
 
 

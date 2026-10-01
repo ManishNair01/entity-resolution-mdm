@@ -7,7 +7,7 @@
 # A variant declares two records a match when EVERY listed field is equal and
 # non-missing. A missing value never equals another missing value, and an empty
 # string counts as missing, so two records that both lack a postcode are not
-# matched on it. Fields are read from std_customers and are named exactly as the
+# matched on it. Fields are read from matching_customers and are named exactly as the
 # columns there are, i.e. the cleaned `<field>_std` columns.
 #
 #   id           lowercase identifier. Names the output table baseline_pairs_<id>
@@ -28,5 +28,10 @@ variants:
       - date_of_birth_std
       - postcode_std
 
-  # [TBD] The roadmap asks for 2-3 variants. The owner has named only the one above;
-  # add the others here. Nothing is assumed in their place.
+  - id: surname_dob
+    description: Two records match when standardized surname and date of birth are equal.
+    match_on: [surname_std, date_of_birth_std]
+
+  - id: dob_postcode
+    description: Two records match when standardized date of birth and postcode are equal.
+    match_on: [date_of_birth_std, postcode_std]
