@@ -180,6 +180,8 @@ def duplication_metrics(existing_metrics: dict[str, Any]) -> dict[str, Any]:
 
 
 def _format_value(value: Any) -> str:
+    if value is None:
+        return "[Missing]"
     if value == "":
         return "*(empty string)*"
     return str(value).replace("|", "\\|")
@@ -195,8 +197,8 @@ def _completeness_table(stats: dict[str, Any]) -> str:
         f"| Empty-string count | {stats['empty_count']} |",
         f"| Empty-string rate | {stats['empty_rate']:.2%} |",
         f"| Distinct count | {stats['distinct_count']} |",
-        f"| Min length | {stats['min_length']} |",
-        f"| Max length | {stats['max_length']} |",
+        f"| Min length | {_format_value(stats['min_length'])} |",
+        f"| Max length | {_format_value(stats['max_length'])} |",
     ]
     return "\n".join(lines)
 

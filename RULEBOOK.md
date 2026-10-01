@@ -95,7 +95,7 @@ value is never overwritten.
 | `address_1`, `address_2` | Trim, collapse whitespace, lowercase, expand approved whole-word abbreviations, and apply the contextual `st` rule. | Bring equivalent address representations closer together. | Does not generally correct misspelled street names or suffixes. |
 | `suburb` | Trim, collapse repeated whitespace, lowercase. | Normalize representation. | Does not correct spelling. |
 | `state` | Trim, lowercase, then apply the approved explicit value mappings. | Correct only state-code errors reviewed by the owner. | Does not infer state from postcode or select a value through automatic edit distance. |
-| `date_of_birth` | Parse valid `YYYYMMDD` values and output `YYYY-MM-DD`; output null when parsing fails. | Give valid dates one representation and prevent impossible dates from contributing match evidence. | Does not overwrite the source DOB or guess the intended date. |
+| `date_of_birth` | Trim surrounding whitespace, then strictly parse `YYYYMMDD` and output `YYYY-MM-DD`; output null when parsing fails. | Give valid dates one representation and prevent impossible dates from contributing match evidence. | Preserves the source DOB; does not remove internal whitespace or guess the intended date. |
 | `postcode`, `soc_sec_id` | Trim surrounding whitespace. | Remove harmless surrounding spacing. | Does not strip internal punctuation or letters. |
 
 Approved address expansions are:

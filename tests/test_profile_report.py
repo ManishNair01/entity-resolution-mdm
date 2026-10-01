@@ -2,6 +2,19 @@
 
 from src import profile
 
+
+def test_missing_display_preserves_nulls_and_distinguishes_empty_strings():
+    stats = {
+        "total_rows": 1, "null_count": 1, "null_rate": 1.0,
+        "empty_count": 0, "empty_rate": 0.0, "distinct_count": 0,
+        "min_length": None, "max_length": None,
+    }
+    assert profile._format_value(None) == "[Missing]"
+    assert profile._format_value("") == "*(empty string)*"
+    assert "| Min length | [Missing] |" in profile._completeness_table(stats)
+    assert "| Max length | [Missing] |" in profile._completeness_table(stats)
+    assert stats["min_length"] is None and stats["max_length"] is None
+
 INGEST_METRICS = {
     "ingest.record_count": 5000,
     "ingest.duplicate_record_count": 3000,

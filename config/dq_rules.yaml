@@ -267,6 +267,7 @@ standardization:
 
   - field: date_of_birth
     steps:
+      - {type: trim}
       - type: normalize_date
         from_format: "%Y%m%d"
         to_format: "%Y-%m-%d"
