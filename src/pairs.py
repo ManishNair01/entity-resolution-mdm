@@ -19,7 +19,8 @@ Two conventions worth being able to defend:
   folded into NULL so a blank cannot match another blank either.
 * **A flag alone does not make a value usable.** A value that the data-quality
   stage flagged as invalid but that is still present would silently become a join
-  key. The stage refuses to run in that case rather than choose how to handle it.
+  key. The matching-input stage masks invalid values; this guard checks that
+  masking was effective before pairs are generated.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from typing import Any
 import duckdb
 import yaml
 
-from src.dq_rules import STAGE_PATTERN, sql_literal, table_columns
+from src.dq_rules import STAGE_PATTERN, table_columns
 from src.standardize import TABLE_NAME as STD_TABLE
 
 IDENTIFIER_PATTERN = STAGE_PATTERN
@@ -155,34 +156,29 @@ def drop_tables_with_prefix(con: duckdb.DuckDBPyConnection, prefix: str) -> None
         con.execute('DROP TABLE "' + name.replace('"', '""') + '"')
 
 
-def assert_inputs_usable(con: duckdb.DuckDBPyConnection, fields: set[str]) -> None:
-    """Refuse to read a column whose present values DQ flagged as invalid.
-
-    The std table makes an impossible date of birth NULL, but an invalid postcode
-    or identifier keeps its source string and is only flagged in
-    `dq_violations_std`. Reading such a column as a key would let a flagged value
-    match. How to make it unavailable is the owner's call, so this stops instead.
-    """
+def assert_inputs_usable(
+    con: duckdb.DuckDBPyConnection, fields: set[str], source_table: str = STD_TABLE
+) -> None:
+    """Reject flagged-invalid values that remain present in the chosen input."""
     if not table_columns(con, VIOLATIONS_TABLE):
         raise ValueError(f"{VIOLATIONS_TABLE} does not exist; run the dq_std stage first")
-    if not fields:
-        return
-    listed = ", ".join(sql_literal(field) for field in sorted(fields))
-    flagged = con.execute(
-        f"SELECT field, COUNT(*) FROM {VIOLATIONS_TABLE} "
-        f"WHERE dimension = 'validity' AND field IN ({listed}) GROUP BY field ORDER BY field"
-    ).fetchall()
+    flagged = []
+    for field in sorted(fields):
+        count = con.execute(
+            f"SELECT count(*) FROM {source_table} s WHERE s.{field} IS NOT NULL "
+            f"AND EXISTS (SELECT 1 FROM {VIOLATIONS_TABLE} v "
+            "WHERE v.unique_id = s.unique_id AND v.dimension = 'validity' "
+            "AND v.field = ?)", [field]
+        ).fetchone()[0]
+        if count:
+            flagged.append((field, count))
     if flagged:
         detail = ", ".join(f"{field}: {count}" for field, count in flagged)
-        raise ValueError(
-            "values flagged invalid by a validity rule are still present in a column the "
-            f"rules read ({detail}); decide how to make them unavailable before matching "
-            "(OPEN-DECISIONS.md item 15)"
-        )
+        raise ValueError(f"values flagged invalid remain in matching input ({detail})")
 
 
-def record_count(con: duckdb.DuckDBPyConnection) -> int:
-    return int(con.execute(f"SELECT COUNT(*) FROM {STD_TABLE}").fetchone()[0])
+def record_count(con: duckdb.DuckDBPyConnection, source_table: str = STD_TABLE) -> int:
+    return int(con.execute(f"SELECT COUNT(*) FROM {source_table}").fetchone()[0])
 
 
 def full_pair_count(records: int) -> int:

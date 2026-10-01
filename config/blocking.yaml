@@ -1,4 +1,4 @@
-# Candidate blocking rules (Phase 3, Part B).
+# Final owner-approved blocking rules (Phase 3, Part B).
 #
 # Owner-owned (AGENTS.md: "blocking rules"). The engine in src/blocking.py reads this
 # file and nothing else (AGENTS.md architecture rule 2).
@@ -6,14 +6,14 @@
 # A rule generates a candidate pair when two records agree on EVERY one of its keys.
 # A missing key never equals another missing key and an empty string counts as
 # missing, so a record with no value for a key produces no pairs from that rule.
-# Keys are read from std_customers.
+# Keys are read from matching_customers, where flagged-invalid values are NULL.
 #
 #   id           lowercase identifier, unique, and not `union` (that names the table
 #                of all rules combined). Names the output table blocking_pairs_<id>
 #                and the key in metrics.json.
 #   description  one line of plain English; the same sentence goes in RULEBOOK.md.
 #   keys         list of keys, each one of:
-#                  - <std_customers column>                  compare the whole value
+#                  - <matching_customers column>                  compare the whole value
 #                  - {field: <column>, prefix: <n>}          compare the first n characters
 #
 # Per rule and for the union of all rules below, the pipeline reports the candidate
@@ -22,8 +22,8 @@
 # (owner-written), not from this stage.
 
 rules:
-  # The roadmap's three examples, adopted by the owner on 2026-10-01 as the
-  # candidates to measure. They are not a final choice.
+  # All four rules below were approved as the final set on 2026-10-02.
+  # Their deduplicated union is the final candidate set; no subset is selected.
   - id: surname
     description: Records with the same standardized surname are candidates.
     keys:
@@ -40,7 +40,10 @@ rules:
       - postcode_std
       - {field: given_name_std, prefix: 1}
 
-# [TBD] Owner: the pair-completeness target for the final set, and the final set
-# itself. Both are chosen from the measured trade-off and justified in RULEBOOK.md.
-# Nothing reads this key yet; it is recorded here so the number lives in config.
-target_pair_completeness: null
+  - id: soc_sec_id
+    description: Records with the same valid standardized social security identifier are candidates.
+    keys:
+      - soc_sec_id_std
+
+# Owner-approved acceptance target for the final union.
+target_pair_completeness: 0.99
