@@ -4,7 +4,7 @@ Things the agent needs from the owner, and the decisions already made. The agent
 adds to this file whenever it hits a choice that belongs to the owner
 (`AGENTS.md`, "Owner-owned decisions"), or makes an assumption to keep moving.
 
-**Owner:** Manish Manoj Nair · **Last updated:** 2026-10-01 (items 12 and 13 resolved; Phase 3 items 15 and 17 still open)
+**Owner:** Manish Manoj Nair · **Last updated:** 2026-10-02 (RULEBOOK section 1 confirmed; Phase 2 has no open items; Phase 3 items 15 and 17 still open)
 
 - **Open** — waiting on you. The agent has assumed something in the meantime;
   each entry says what.
@@ -357,9 +357,9 @@ default is assumed.
 
 **Phase 2 — DQ rules.** The engine, check types, transforms, age-review stage and
 their tests are in place (`src/dq_rules.py`, `src/standardize.py`,
-`src/age_review.py`). Items 12 and 13 are now resolved. Remaining for you: confirm
-`RULEBOOK.md` section 1. (The owner moved the phase to 3 before this was done, so
-it is still outstanding.)
+`src/age_review.py`). Items 12 and 13 are resolved, and the owner confirmed
+`RULEBOOK.md` section 1 on 2026-10-02 (see Decided). **No owner item for Phase 2
+remains open in this ledger.**
 
 **Phase 3 — baseline and blocking.** The pair engine, the baseline and blocking
 stages, both config files (with the owner's adopted roadmap examples) and their
@@ -376,6 +376,7 @@ can be measured (item 17); decide how a flagged-invalid value becomes unavailabl
 
 | Date | Decision | Notes |
 |---|---|---|
+| 2026-10-02 | `RULEBOOK.md` section 1 confirmed as written | Owner sign-off on §1.1–§1.5 (blob `826a1b6`, last changed in `8afec69`). The agent cross-checked it against `config/dq_rules.yaml` the same day: all 8 rule ids and fields, the stated severities, the `DQ-C-004` parameters, the validity formats, all 9 standardization chains, all 27 state corrections and all 9 address expansions, and the age-review parameters match. Five points were noted and left unedited by the owner's choice, so they stand as written: (1) "invalid postcode and `soc_sec_id` become unavailable as identity evidence" holds for the `DQ-C-004` count, while keeping them out of the matching input is open item 15; (2) the severities of `DQ-C-004` (error), `DQ-V-001` (error) and `DQ-V-004` (warning) are not stated in the rulebook; (3) the rulebook does not state what happens to a record that fails `DQ-C-004` (decided separately: it stays in matching and is never auto-merged); (4) a DOB after the reference date is in no age band, which §1.3 does not mention; (5) the rule descriptions in the config and the rulebook are worded differently, though the config header calls them the same sentence. The Phase 3 baseline and blocking prose is not yet written. |
 | 2026-10-01 | Accept all remaining item 13 assumptions as written | Closes item 13. Accepted as written: `present` fails on NULL and blank; a string blank after trimming stays an empty string (not NULL); `DQ-C-004` counts a signal only when non-NULL and valid, with `soc_sec_id` capped at `max_substitutes`; impossible DOBs are reclassified as missing in the cleaned pass; `on_error: null` loads as YAML null; a DOB after the reference date is in no band and flagged by no rule; `age_review` is a separate stage after `dq_std`; the `dq_rules.yaml` header is not updated for the newer check types. Also accepted, from the 2026-10-01 review fixes: whitespace means any whitespace, dates must exactly match the format, the age-review output name is protected, and a switched-off or renamed age review cleans up its table and metrics. Phase 3 assumptions are not covered. |
 | 2026-10-01 | Item 12 resolved: retain age bands as a policy demonstration | Document the synthetic-data limitation in README; minor routing is covered by unit tests. Keep the reference date 2026-09-22. No threshold change. |
 | 2026-10-01 | Trim padded DOBs before strict parsing (item 13) | Add trim before normalize_date; preserve raw DOBs. Raw format violations remain visible, while valid trimmed dates become usable in standardized data. Internal corruption remains invalid. |
