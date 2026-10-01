@@ -29,6 +29,23 @@ def test_trim_leaves_null_and_clean_values_alone():
     assert applied([{"type": "trim"}], ["  a  ", "a", "", "   ", None]) == ["a", "a", "", "", None]
 
 
+def test_trim_strips_tabs_newlines_and_non_breaking_spaces_not_just_spaces():
+    assert applied(
+        [{"type": "trim"}], ["\ta\t", "\n a \r\n", " a ", "a b", " \t "]
+    ) == ["a", "a", "a", "a b", ""]
+
+
+def test_trim_then_collapse_leaves_no_stray_space_at_either_end():
+    """Trim only stripped spaces, so `\\ta\\t` became ' a ' after the collapse step."""
+    steps = [{"type": "trim"}, {"type": "collapse_whitespace"}, {"type": "lowercase"}]
+    assert applied(steps, ["\tO'Brien-Smith\t", "  A \t B  ", " Mary Ann ", None]) == [
+        "o'brien-smith",
+        "a b",
+        "mary ann",
+        None,
+    ]
+
+
 def test_collapse_whitespace():
     assert applied(
         [{"type": "collapse_whitespace"}], ["a   b", "a b", "a\tb", None]
@@ -63,6 +80,16 @@ def test_normalize_date_can_null_unparseable_values_instead():
         "on_error": "null",
     }
     assert applied([step], ["19700101", "19320239"]) == ["1970-01-01", None]
+
+
+def test_normalize_date_does_not_guess_a_date_from_a_malformed_value():
+    """A seven-digit or padded value must not be turned into a date the source never held."""
+    step = {"type": "normalize_date", "from_format": "%Y%m%d", "to_format": "%Y-%m-%d", "on_error": "null"}
+    malformed = ["1970011", "2000101", "197001011", " 19700101", "19700101\n", "19000229"]
+    assert applied([step], ["19700101", *malformed]) == ["1970-01-01"] + [None] * len(malformed)
+
+    keep = {**step, "on_error": "keep"}
+    assert applied([keep], malformed) == malformed
 
 
 def test_normalize_date_refuses_an_unknown_on_error():

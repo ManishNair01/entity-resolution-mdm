@@ -181,6 +181,24 @@ def write_metrics(metrics: dict, path: Path | None = None) -> None:
     path.write_text(json.dumps(existing, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def remove_metrics(prefix: str, path: Path | None = None) -> dict:
+    """Delete every metric whose key starts with `prefix`; return what was removed.
+
+    `write_metrics` only ever merges, so a stage that stops producing a number
+    would otherwise leave its last value in the file looking current. A stage calls
+    this when it is switched off, or before it recomputes, so that every number in
+    `reports/metrics.json` was produced by the most recent run of that stage.
+    """
+    path = Path(path) if path is not None else METRICS_PATH
+    if not path.exists():
+        return {}
+    existing = json.loads(path.read_text(encoding="utf-8"))
+    removed = {key: existing.pop(key) for key in [k for k in existing if k.startswith(prefix)]}
+    if removed:
+        path.write_text(json.dumps(existing, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return removed
+
+
 def run(db_path: Path | str = DEFAULT_DB_PATH, seed: int = RANDOM_SEED) -> dict:
     """Write the `raw_customers` table and return this stage's metrics.
 

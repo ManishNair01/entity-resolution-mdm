@@ -23,7 +23,14 @@ from typing import Any, Callable
 
 import duckdb
 
-from src.dq_rules import CONFIG_PATH, load_config, sql_literal
+from src.dq_rules import (
+    CONFIG_PATH,
+    WHITESPACE,
+    load_config,
+    sql_literal,
+    strict_date_sql,
+    trim_sql,
+)
 from src.ingest import DEFAULT_DB_PATH, FEBRL_COLUMNS, TABLE_NAME as SOURCE_TABLE, write_metrics
 
 TABLE_NAME = "std_customers"
@@ -39,11 +46,12 @@ STD_SUFFIX = "_std"
 
 
 def _trim(expr: str, step: dict[str, Any]) -> str:
-    return f"TRIM({expr})"
+    """Strip surrounding whitespace of every kind, not just spaces (`dq_rules.WHITESPACE`)."""
+    return trim_sql(expr)
 
 
 def _collapse_whitespace(expr: str, step: dict[str, Any]) -> str:
-    return f"regexp_replace({expr}, '\\s+', ' ', 'g')"
+    return f"regexp_replace({expr}, {sql_literal(WHITESPACE + '+')}, ' ', 'g')"
 
 
 def _lowercase(expr: str, step: dict[str, Any]) -> str:
@@ -60,6 +68,10 @@ def _normalize_date(expr: str, step: dict[str, Any]) -> str:
     `on_error: keep` (the default) is the conservative reading: an unparseable
     date is a fact about the data for a validity rule to flag, not something this
     stage should quietly turn into NULL. `on_error: null` blanks it instead.
+
+    Parsing is strict (`dq_rules.strict_date_sql`): a value that is not exactly
+    `from_format`, such as a seven-digit `1970011` or a padded `' 19700101'`, counts
+    as unparseable rather than being guessed into a date.
     """
     from_format = _required(step, "from_format")
     to_format = _required(step, "to_format")
@@ -70,7 +82,7 @@ def _normalize_date(expr: str, step: dict[str, Any]) -> str:
     if on_error not in ("keep", "null"):
         raise ValueError(f"normalize_date: on_error must be 'keep' or 'null', got {on_error!r}")
 
-    parsed = f"strftime(try_strptime({expr}, {sql_literal(from_format)}), {sql_literal(to_format)})"
+    parsed = f"strftime({strict_date_sql(expr, from_format)}, {sql_literal(to_format)})"
     return parsed if on_error == "null" else f"COALESCE({parsed}, {expr})"
 
 

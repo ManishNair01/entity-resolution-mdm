@@ -75,6 +75,34 @@ def test_parses_as_date_rejects_impossible_calendar_dates():
     ]
 
 
+def test_parses_as_date_is_strict_about_shape_not_just_calendar_validity():
+    """DuckDB's own parser reads `1970011` as 1970-01-01; the rule must not."""
+    check = {"type": "parses_as_date", "format": "%Y%m%d"}
+    values = ["19700101", "1970011", "2000101", "197001011", " 19700101", "19700101\t", "19000229", "20000229"]
+    assert violations(check, values) == ["1970011", "2000101", "197001011", " 19700101", "19700101\t", "19000229"]
+
+
+def test_parses_as_date_is_strict_for_the_standardized_format_too():
+    check = {"type": "parses_as_date", "format": "%Y-%m-%d"}
+    assert violations(check, ["1970-01-01", "1970-1-01", "1970-01-1", "1970-02-30"]) == [
+        "1970-1-01",
+        "1970-01-1",
+        "1970-02-30",
+    ]
+
+
+def test_blank_checks_treat_every_kind_of_whitespace_as_blank():
+    """DuckDB's TRIM strips spaces only, so a tab-only value used to count as present."""
+    padded = ["\t", "\n", " \t\r\n ", " ", "a", "\ta\t"]
+    assert violations({"type": "not_blank"}, padded) == ["\t", "\n", " \t\r\n ", " "]
+    assert violations({"type": "present"}, padded) == ["\t", "\n", " \t\r\n ", " "]
+
+
+def test_in_set_ignores_tabs_and_newlines_around_a_value():
+    check = {"type": "in_set", "values": ["nsw"]}
+    assert violations(check, ["\tnsw\n", "nsw ", "nws"]) == ["nws"]
+
+
 def test_unknown_check_type_is_refused():
     with pytest.raises(ValueError, match="unknown check type"):
         dq_rules.check_predicate("v", {"type": "vibe_check"})

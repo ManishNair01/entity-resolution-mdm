@@ -48,6 +48,12 @@ STAGE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
 STD_SUFFIX = "_std"
 
+# What "whitespace" means everywhere in Phase 2: ASCII whitespace (space, tab,
+# newline, carriage return, form feed) plus Unicode separators such as the
+# non-breaking space. DuckDB's own TRIM strips spaces only, so a value padded with
+# a tab would survive "trim", and trim followed by collapse would leave one space.
+WHITESPACE = r"[\s\p{Z}]"
+
 
 def sql_literal(value: Any) -> str:
     """Quote `value` as a DuckDB string literal.
@@ -73,6 +79,25 @@ def load_config(path: Path | str = CONFIG_PATH) -> dict[str, Any]:
     return config
 
 
+def trim_sql(expr: str) -> str:
+    """Strip leading and trailing whitespace (see `WHITESPACE`); NULL stays NULL."""
+    return f"regexp_replace({expr}, {sql_literal(f'^{WHITESPACE}+|{WHITESPACE}+$')}, '', 'g')"
+
+
+def strict_date_sql(expr: str, date_format: str) -> str:
+    """Parse `expr` as a date, or NULL unless it is exactly what `date_format` writes.
+
+    DuckDB's `try_strptime` is lenient: it reads `1970011` as 1970-01-01 and accepts
+    surrounding whitespace, which would invent a date the source never held. A value
+    is accepted only when formatting the parsed date reproduces it character for
+    character, so the digit count, zero padding and calendar validity are all
+    enforced by one test and a malformed value is never guessed into a date.
+    """
+    literal = sql_literal(date_format)
+    parsed = f"try_strptime({expr}, {literal})"
+    return f"CASE WHEN strftime({parsed}, {literal}) = {expr} THEN {parsed} END"
+
+
 def _required(spec: dict[str, Any], key: str) -> Any:
     if key not in spec:
         raise ValueError(f"check {spec.get('type', '?')!r}: missing required key {key!r}")
@@ -84,7 +109,7 @@ def _not_null(field: str, spec: dict[str, Any]) -> str:
 
 
 def _not_blank(field: str, spec: dict[str, Any]) -> str:
-    return f"{field} IS NULL OR TRIM(CAST({field} AS VARCHAR)) <> ''"
+    return f"{field} IS NULL OR {trim_sql(f'CAST({field} AS VARCHAR)')} <> ''"
 
 
 def _present(field: str, spec: dict[str, Any]) -> str:
@@ -92,7 +117,7 @@ def _present(field: str, spec: dict[str, Any]) -> str:
 
     Unlike the other checks this one fails on NULL: it is the completeness check.
     """
-    return f"{field} IS NOT NULL AND TRIM(CAST({field} AS VARCHAR)) <> ''"
+    return f"{field} IS NOT NULL AND {trim_sql(f'CAST({field} AS VARCHAR)')} <> ''"
 
 
 def _in_set(field: str, spec: dict[str, Any]) -> str:
@@ -103,7 +128,7 @@ def _in_set(field: str, spec: dict[str, Any]) -> str:
         subject = f"CAST({field} AS VARCHAR)"
         literals = ", ".join(sql_literal(value) for value in values)
     else:
-        subject = f"LOWER(TRIM(CAST({field} AS VARCHAR)))"
+        subject = f"LOWER({trim_sql(f'CAST({field} AS VARCHAR)')})"
         literals = ", ".join(sql_literal(str(value).strip().lower()) for value in values)
     return f"{field} IS NULL OR {subject} IN ({literals})"
 
@@ -129,10 +154,8 @@ def _length_between(field: str, spec: dict[str, Any]) -> str:
 
 def _parses_as_date(field: str, spec: dict[str, Any]) -> str:
     date_format = _required(spec, "format")
-    return (
-        f"{field} IS NULL OR "
-        f"try_strptime(CAST({field} AS VARCHAR), {sql_literal(date_format)}) IS NOT NULL"
-    )
+    strict = strict_date_sql(f"CAST({field} AS VARCHAR)", date_format)
+    return f"{field} IS NULL OR ({strict}) IS NOT NULL"
 
 
 # Each entry returns SQL that is TRUE when the value is acceptable; the engine
