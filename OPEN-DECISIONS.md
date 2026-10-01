@@ -50,8 +50,7 @@ fields, identifier errors). The starting material was P1–P8 in
 *Still open, and not needed to close Phase 2:* the exact treatment of a record
 that fails DQ-C-004. Phase 3 has to say what the matching input does with it:
 excluded from candidate pairs, kept but never auto-merged, or routed to review.
-It is listed in `WORKING-PLAN.md` as a Phase 3 input and gets its own Open entry
-when Phase 3 starts.
+It is listed in `WORKING-PLAN.md` as a Phase 3 input and is now item 15.
 
 *Assumed:* nothing. DQ-C-004 only flags the record; it stays in `std_customers`
 and nothing downstream drops it.
@@ -219,6 +218,109 @@ before and after the fix gave the same metrics apart from one new config echo,
   calendar date in `YYYYMMDD`" and "trim surrounding whitespace"; the engine now
   enforces those literally. Add a sentence if you want strictness spelled out.
 
+### 14. Is the current phase now 3? — resolved 2026-10-01
+
+*Raised by the agent, 2026-10-01.* The owner asked in chat to continue with
+Phase 3 after PR #8 merged. `AGENTS.md` still said "Current phase: 2" with the note
+"owner updates this", and the working plan says the owner advances it. Items 12
+and 13 were both still Open at the time.
+
+**Resolved 2026-10-01:** the owner said yes. `AGENTS.md` now says "Current phase: 3"
+(see Decided). Kept here as the record of the question; move it out when you
+next tidy the ledger.
+
+### 15. What goes into the matching input, and what happens to ineligible records? — mostly resolved; one piece still open
+
+*Raised by the agent, 2026-10-01; carries over the open part of item 8.* Matching
+reads `std_customers`. In that table an impossible or missing DOB is already NULL
+in `date_of_birth_std`, but an invalid `postcode` or `soc_sec_id` keeps its
+source string and is only *flagged* in `dq_violations_std`; `dq.std.violations_by_rule`
+in `reports/metrics.json` shows how many of each the last run found. A flag alone
+must not become a valid match input (`WORKING-PLAN.md`, Phase 3).
+
+The questions were: which `std_customers` columns the rules may read, what to do
+with a record that fails DQ-C-004, and whether the three-signal rule also gates
+blocking.
+
+**Answered 2026-10-01:** a record that fails DQ-C-004 is *included* and never
+auto-merged. Phase 3 does not gate the baseline or blocking on it; Phase 5 routes
+any pair involving such a record to review (see Decided). The columns are the
+`<field>_std` columns that the owner's adopted rules name (item 17).
+
+**Still open: how a flagged-invalid value becomes unavailable.** The settled
+postcode and identifier policy says a value that fails its observed format is
+"unavailable for identity matching", but nothing in the std table makes it so: an
+invalid postcode or `soc_sec_id` keeps its string and is only flagged. So the
+Phase 3 stages *refuse to run* if a validity violation exists on a column a rule
+reads (`pairs.assert_inputs_usable`), rather than choose a mechanism for you.
+Options when it matters: null such values in the std table (a standardization
+step), or null them in a separate matching-input step. The refusal did not
+trigger on the current data.
+
+*Assumed:* a NULL never equals another NULL, and an empty string counts as
+missing, so two blank values are not evidence. DQ-C-004 stays flag-only inside
+Phase 3, and every record stays in `std_customers`.
+
+### 16. The `evaluate.py` interface (owner-written) — resolved 2026-10-01
+
+*Raised by the agent, 2026-10-01.* Per roadmap §10.1 you write `src/evaluate.py`,
+including pairwise precision/recall/F1 and pair completeness, and `AGENTS.md` hard
+rule 6 says the agent does not edit it unless asked. The baseline and blocking code
+has to hand it something to score, so the contract matters.
+
+*Contract (proposed here, accepted 2026-10-01 together with the stub):* each stage
+writes a new table of canonical unordered pairs `(unique_id_l, unique_id_r)` with
+`unique_id_l < unique_id_r`, no self-pairs and no duplicates, and `evaluate.py`
+joins such a table to ground truth on `unique_id`. Pair tables never carry
+`rec_id` or `true_cluster_id`.
+
+**Resolved 2026-10-01:** the owner chose the stub. The agent created
+`src/evaluate.py` with two signatures only, `pairwise_metrics(db_path, pairs_table)`
+and `pair_completeness(db_path, pairs_table)`, each with a docstring and
+`raise NotImplementedError`; the owner writes the bodies. Each variant or rule gets
+its own table (`baseline_pairs_<id>`, `blocking_pairs_<id>`,
+`blocking_pairs_union`), so one function can score any of them.
+
+*Assumed:* `evaluate.py` is not wired into `run_pipeline.py` while it is a stub, so
+no precision, recall, F1 or pair-completeness number exists yet.
+
+### 17. Baseline rules, blocking rules, config layout and the completeness target — partly resolved
+
+*Raised by the agent, 2026-10-01.* All four are yours (`AGENTS.md`, "Owner-owned
+decisions"); the roadmap's examples (surname + DOB + postcode for the baseline;
+same surname, same DOB, postcode + first letter of given name for blocking) were
+offered as options. **Answered 2026-10-01:** the owner adopted them as the
+candidates to measure (see Decided), and the agent encoded them in
+`config/baseline.yaml` and `config/blocking.yaml`.
+
+- **Baseline variants (2–3):** variant 1 (surname + DOB + postcode) is in. **Still
+  open:** the owner has not named variants 2–3, so the file holds a `[TBD]` and the
+  engine runs however many are listed. Nothing was invented in their place.
+- **Candidate blocking rules (3–5):** the three roadmap examples are in; the
+  roadmap asks for 3–5, so add more if you want them measured.
+- **Pair-completeness target and the final blocking set — still open.** Both come
+  from the measured trade-off once your `evaluate.py` can report completeness.
+  `target_pair_completeness` is `null` in `config/blocking.yaml` until you set it.
+- **Config layout.** Built as proposed: `config/baseline.yaml` with
+  `variants: [{id, description, match_on: [<std field>, ...]}]`, and
+  `config/blocking.yaml` with
+  `rules: [{id, description, keys: [<std field> | {field, prefix: <n>}]}]` plus
+  the target. You did not comment on it explicitly, so overrule it if you want a
+  different shape. Rule values live only in these files (architecture rule 2).
+
+The pair tables are generated with plain DuckDB SQL (`src/pairs.py`), because they
+have to exist as tables for `evaluate.py`. Splink 4.0.17's
+`splink.blocking_analysis.count_comparisons_from_blocking_rule` (signature checked
+against the installed package on 2026-10-01) is used only as an independent
+cross-check of the counts, in `tests/test_baseline_blocking.py`. Pair completeness
+comes from your `evaluate.py`, not from Splink.
+
+*Assumed:* the **reduction ratio** is `1 − candidate pairs ÷ full pairs`, with full
+pairs = n(n−1)/2, reported per rule and for the union of all candidate rules. That
+is the usual definition, but it is a definition, so overrule it if you use another.
+The union is over *all* candidate rules; the union of your final subset is a later
+step, once the final set is chosen.
+
 ---
 
 ## Needed before the next phase
@@ -247,7 +349,17 @@ default is assumed.
 their tests are in place (`src/dq_rules.py`, `src/standardize.py`,
 `src/age_review.py`). Item 12 is now resolved. Remaining for you: review the unresolved parts of item
 13 (whether to keep or overrule the other assumptions), and
-confirm `RULEBOOK.md` section 1. Then advance the phase in `AGENTS.md`.
+confirm `RULEBOOK.md` section 1. (The owner has since moved the phase to 3 without
+waiting for these; the unresolved part of item 13 remains open.)
+
+**Phase 3 — baseline and blocking.** The pair engine, the baseline and blocking
+stages, both config files (with the owner's adopted roadmap examples) and their
+tests are in place; the stages run in `run_pipeline.py`. `src/evaluate.py` is a
+stub, so **no precision, recall, F1 or pair-completeness number exists yet**.
+Remaining for you: write `evaluate.py`; name baseline variants 2–3 (item 17); set
+the pair-completeness target and choose the final blocking set once completeness
+can be measured (item 17); decide how a flagged-invalid value becomes unavailable
+(item 15); write the baseline and blocking prose in `RULEBOOK.md`.
 
 ---
 
@@ -290,6 +402,10 @@ confirm `RULEBOOK.md` section 1. Then advance the phase in `AGENTS.md`.
 | 2026-09-29 | Age calculations use the fixed date 2026-09-22 | Calculate completed age against the same reference date used for synthetic metadata. Do not use the pipeline run date, because review-band membership must be reproducible. |
 | 2026-09-29 | Age review runs alongside entity matching | Keep valid DOBs as identity evidence and keep flagged records eligible for matching. Write a separate reference-based review table with `unique_id`, calculated age, fixed calculation date, reason and initial `pending` status. Decide any auto-merge restriction in Phase 5. |
 | 2026-09-29 | `metrics.json` is sufficient Phase 2 reporting | Store before/after violation counts under the existing `dq.raw.*` and `dq.std.*` keys. Do not add a separate Markdown DQ report; the readable scorecard belongs to Phase 7. |
+| 2026-10-01 | Phase 3 is the current phase | Confirmed in chat after PR #8 merged; `AGENTS.md` now says "Current phase: 3". Item 12 was resolved the same day; the rest of item 13 stays Open. |
+| 2026-10-01 | Records failing DQ-C-004 are included in matching and never auto-merged | Phase 3 does not gate the baseline or blocking on DQ-C-004. Phase 5 routes any pair involving such a record to review; the thresholds decide the rest. |
+| 2026-10-01 | `evaluate.py` is created as a stub only | Two signatures with docstrings and `NotImplementedError`; the owner writes the bodies. Pair-table contract: columns `unique_id_l`, `unique_id_r`, canonical (`l < r`), no self-pairs, no duplicates, no ground truth. |
+| 2026-10-01 | The roadmap's example rules are the Phase 3 candidates | Baseline variant 1: standardized surname + date of birth + postcode equal. Blocking candidates: same surname; same date of birth; same postcode and first letter of given name. Baseline variants 2–3, the pair-completeness target and the final blocking set stay open (item 17). |
 
 ---
 
@@ -332,3 +448,24 @@ Phase 2 (`src/dq_rules.py`, `src/standardize.py`):
   value exactly in `from_format` becomes a date.
 - `replace_words` matches whole words and applies its mapping in the order
   written, so the output stays reproducible (architecture rule 4).
+
+Phase 3 (`src/pairs.py`, `src/baseline.py`, `src/blocking.py`):
+
+- **Missing never equals missing.** A NULL key never matches another NULL, and an
+  empty string is folded into NULL, so two records that both lack a postcode are
+  not "the same postcode". SQL already treats NULL this way; the empty string rule
+  is the agent's addition (no blank string exists in `raw_customers` today).
+- **One table per variant or rule,** named `baseline_pairs_<id>` and
+  `blocking_pairs_<id>`, plus `blocking_pairs_union`. Each stage owns its whole
+  table-name prefix and drops every table under it before rewriting, so a removed or
+  renamed rule leaves nothing stale; it does the same for its `baseline.*` or
+  `blocking.*` metrics. The id `union` is reserved. Validation runs before anything
+  is dropped, so a config error leaves the previous output intact.
+- **The stages refuse to run on flagged values** that are still present in a column a
+  rule reads (item 15). They stop instead of choosing how to make the value
+  unavailable.
+- **Baseline `match_on` takes whole columns only;** prefix keys are a blocking
+  device. Blocking keys may be a column or `{field, prefix: n}`.
+- **Counts are label-free.** `baseline.matched_pairs_by_variant`, the `blocking.*`
+  candidate counts and the reduction ratios need no ground truth. Precision, recall,
+  F1 and pair completeness do, so they wait for the owner's `evaluate.py`.

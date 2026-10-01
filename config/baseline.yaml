@@ -1,0 +1,32 @@
+# Deterministic baseline match rules (Phase 3, Part A).
+#
+# Owner-owned (AGENTS.md: "Baseline match rules"). The engine in src/baseline.py
+# reads this file and nothing else, so adding, changing or removing a variant needs
+# no code change (AGENTS.md architecture rule 2).
+#
+# A variant declares two records a match when EVERY listed field is equal and
+# non-missing. A missing value never equals another missing value, and an empty
+# string counts as missing, so two records that both lack a postcode are not
+# matched on it. Fields are read from std_customers and are named exactly as the
+# columns there are, i.e. the cleaned `<field>_std` columns.
+#
+#   id           lowercase identifier. Names the output table baseline_pairs_<id>
+#                and the key in metrics.json, so don't rename a variant that has
+#                already been reported on. Must be unique.
+#   description  one line of plain English; the same sentence goes in RULEBOOK.md.
+#   match_on     list of std_customers columns that must all be equal.
+#
+# The pairs a variant produces are scored against ground truth by src/evaluate.py
+# (owner-written), never here.
+
+variants:
+  # The roadmap's example rule, adopted by the owner on 2026-10-01.
+  - id: surname_dob_postcode
+    description: Two records match when standardized surname, date of birth and postcode are all equal.
+    match_on:
+      - surname_std
+      - date_of_birth_std
+      - postcode_std
+
+  # [TBD] The roadmap asks for 2-3 variants. The owner has named only the one above;
+  # add the others here. Nothing is assumed in their place.

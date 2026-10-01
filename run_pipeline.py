@@ -1,6 +1,8 @@
 """Run every pipeline stage end to end: raw data -> scorecard.
 
-Phases 0-2: ingest, profile, then the data-quality, standardization and age-review stages.
+Phases 0-3: ingest, profile, the data-quality, standardization and age-review stages,
+then the baseline matcher and the blocking rules. Scoring them against ground truth is
+`src/evaluate.py`, which the owner writes and which is not wired in until it exists.
 Later phases append to `STAGES` in order. The guard test
 `tests/test_raw_untouched.py` runs this module, so it must stay runnable against
 an arbitrary DuckDB path.
@@ -16,7 +18,7 @@ import argparse
 from functools import partial
 from pathlib import Path
 
-from src import age_review, dq_rules, ingest, profile, standardize
+from src import age_review, baseline, blocking, dq_rules, ingest, profile, standardize
 
 DEFAULT_DB_PATH = ingest.DEFAULT_DB_PATH
 
@@ -28,6 +30,8 @@ STAGES = [
     ("standardize", standardize.run),
     ("dq_std", partial(dq_rules.run_for, source_table=standardize.TABLE_NAME, stage="std")),
     ("age_review", age_review.run),
+    ("baseline", baseline.run),
+    ("blocking", blocking.run),
 ]
 
 
