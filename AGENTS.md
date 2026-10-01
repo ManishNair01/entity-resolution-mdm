@@ -7,7 +7,7 @@ The full plan is in `project-1-entity-resolution-roadmap.md`. Ownership of each 
 
 Deduplicate a messy customer dataset (Febrl 3), merge duplicates into golden records with explicit survivorship rules, and report data quality. It's a portfolio project whose owner must be able to defend every design decision in an interview. Your job is plumbing, not decisions.
 
-- **Current phase:** 3  <!-- owner updates this -->
+- **Current phase:** 4  <!-- owner updates this -->
 - **Python:** 3.11+
 - **Splink version:** 4.0.17 (installed 2026-09-22; pinned in `requirements.txt`). Use only this version's API. v3 and v4 differ; do not mix them. If unsure of a function name, say so instead of guessing.
 

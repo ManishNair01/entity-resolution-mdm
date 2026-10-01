@@ -166,15 +166,19 @@ Rule: **every stage reads from DuckDB and writes a new table.** Never overwrite 
 
 **You'll learn:** why exact-match rules fail on real data (this justifies the probabilistic model), and blocking, which is the scaling technique behind every entity-resolution system.
 
+**Status:** Closed with owner sign-off on 2026-10-02. Technical closure review
+passed; approved rules and measured results are documented in `RULEBOOK.md`
+section 2 and `reports/metrics.json`. Phase 4 is now current.
+
 **Part A: baseline**
-- [ ] `baseline.py`: declare two records a match if, e.g., standardized surname + date of birth + postcode are equal. Try 2–3 rule variants.
-- [ ] Measure pairwise precision, recall, and F1 against ground truth (build the evaluation function in `evaluate.py` now; you'll reuse it).
+- [x] `baseline.py`: declare two records a match if, e.g., standardized surname + date of birth + postcode are equal. Try 2–3 rule variants.
+- [x] Measure pairwise precision, recall, and F1 against ground truth (build the evaluation function in `evaluate.py` now; you'll reuse it).
 
 **Part B: blocking**
-- [ ] Compute the number of pairs a full comparison would need: n × (n − 1) / 2.
-- [ ] Propose 3–5 blocking rules (e.g. same surname; same date of birth; same postcode + first letter of given name).
-- [ ] For each rule and for the union of rules, report: candidate pairs generated, reduction ratio, and **pair completeness** (share of true duplicate pairs that survive blocking).
-- [ ] Choose a final set and record the reasoning in `config/blocking.yaml` and the rulebook.
+- [x] Compute the number of pairs a full comparison would need: n × (n − 1) / 2.
+- [x] Propose 3–5 blocking rules (e.g. same surname; same date of birth; same postcode + first letter of given name).
+- [x] For each rule and for the union of rules, report: candidate pairs generated, reduction ratio, and **pair completeness** (share of true duplicate pairs that survive blocking).
+- [x] Choose a final set and record the reasoning in `config/blocking.yaml` and the rulebook.
 
 > Hint: Splink ships blocking-analysis helpers (see `splink.blocking_analysis`). Compute pair completeness yourself against ground truth; that's the number that matters and the one interviewers ask about.
 
@@ -183,8 +187,8 @@ Rule: **every stage reads from DuckDB and writes a new table.** Never overwrite 
 **Deliverable:** baseline metrics table; blocking analysis table; chosen blocking rules with justification.
 
 **Acceptance checks**
-- Baseline precision/recall are measured, not estimated.
-- Chosen blocking keeps pair completeness high (you set and justify the target) while cutting candidate pairs by orders of magnitude.
+- [x] Baseline precision/recall are measured, not estimated.
+- [x] Chosen blocking keeps pair completeness high (you set and justify the target) while cutting candidate pairs by orders of magnitude.
 
 ---
 

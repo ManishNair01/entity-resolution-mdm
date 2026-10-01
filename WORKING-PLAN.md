@@ -1,12 +1,12 @@
 # Working plan — entity resolution and golden records
 
-Updated: 2026-09-29
+Updated: 2026-10-02
 
 This is the execution companion to `project-1-entity-resolution-roadmap.md`,
 especially its ownership table in Section 10.1. `AGENTS.md` remains authoritative.
-The owner requested planning for every phase; implementation remains limited to
-Phase 2 until the owner advances the current phase. Future checkboxes are planned
-work, not authorization to implement it now.
+The owner signed off Phase 3 closure on 2026-10-02; Phase 4 is now current.
+Phase 4 implementation requires its owner-owned modeling decisions first.
+Future-phase checkboxes remain planned work, not completed implementation.
 
 ## Starting point
 
@@ -14,14 +14,16 @@ work, not authorization to implement it now.
 |---|---|---|
 | 0 — Setup | Ingest, pinned requirements and guard tests exist | Retain and recheck the acceptance evidence |
 | 1 — Profiling | Profiling code, report and observed-problems file exist | Retain and confirm owner review |
-| 2 — DQ and standardization | Config, engines, age review and tests exist; current phase | Close open assumptions and verify acceptance |
-| 3–7 — Remaining core | Not wired into `run_pipeline.py` | Execute sequentially after phase gates |
+| 2 — DQ and standardization | Config, engines, age review and tests exist | Retain earlier-stage outputs and guards |
+| 3 — Baseline and blocking | Implemented, evaluated and closed with owner sign-off | Preserve approved rules and acceptance evidence |
+| 4 — Probabilistic matching | Current phase; implementation not started | Resolve comparisons, levels, TF, prior and EM settings |
+| 5–7 — Remaining core | Planned | Execute sequentially after phase gates |
 | 8 — Stewardship UI | Optional roadmap scope | Decide whether to pursue after core completion |
 
-Presence of files does not prove acceptance. No pipeline or test suite was run
-to write this plan, and no historical metric is treated as a current result.
-All outcome values remain `[TBD]` until a pipeline run produces them in
-`reports/metrics.json`.
+Presence of files does not prove acceptance. Phase 3 closure follows the
+technical review and explicit owner sign-off recorded in OPEN-DECISIONS.md.
+Current measured outcomes are in `reports/metrics.json`; unmeasured outcomes
+remain `[TBD]`. Earlier-phase checklists below are historical planning records.
 
 ## How to execute each phase
 
@@ -80,7 +82,7 @@ work, not a request to rebuild it.
 **Gate:** complete coverage, grounded examples, reproducible report and owner
 explanation of which observations motivate Phase 2 rules.
 
-## Phase 2 — Close out DQ rules and standardization (current)
+## Phase 2 — DQ rules and standardization (historical plan)
 
 **Owner inputs:** review open decision items 8, 11, 12 and 13. Confirm the
 remaining DQ behavior and rulebook; settled mappings and field policies remain
@@ -108,29 +110,31 @@ the owner already chose metrics-only reporting until Phase 7.
 **Gate:** YAML-driven behavior, passing tests and guards, measured before/after
 violations, reviewed assumptions and clear deferrals with no silent defaults.
 
-## Phase 3 — Deterministic baseline and blocking
+## Phase 3 — Deterministic baseline and blocking (closed)
 
 **Owner inputs:** baseline variants, candidate blocking rules, final blocking
 choice and target pair completeness, plus treatment of DQ-ineligible records.
-Owner writes `src/evaluate.py`, including pairwise metrics and pair completeness.
+The owner explicitly delegated `src/evaluate.py` implementation and signed off
+the completed phase on 2026-10-02, including evaluation and rulebook section 2.
 
-- [ ] Agree the eligible matching input and how invalid evidence is made
+- [x] Agree the eligible matching input and how invalid evidence is made
       unavailable; flags alone must not accidentally become valid matching inputs.
-- [ ] Record baseline and blocking rules in YAML. Config layout for baseline
+- [x] Record baseline and blocking rules in YAML. Config layout for baseline
       rules must be agreed before implementation; no hard-coded rule values.
-- [ ] Agent implements the baseline matcher and candidate counting over approved
+- [x] Agent implements the baseline matcher and candidate counting over approved
       rules, with canonical unordered pairs and no self-pairs or duplicates.
-- [ ] Owner implements and checks evaluation against hand-worked examples.
-- [ ] Measure baseline precision/recall/F1, full pair count, candidate count,
+- [x] Implement evaluation under owner authorization and check hand-worked examples.
+- [x] Measure baseline precision/recall/F1, full pair count, candidate count,
       reduction ratio and pair completeness per block and for their union.
-- [ ] Owner chooses and justifies final blocking rules in `config/blocking.yaml`
+- [x] Owner chooses and justifies final blocking rules in `config/blocking.yaml`
       and the rulebook, using the measured trade-off.
 
 **Outputs:** baseline metrics, blocking analysis and approved blocking config.
 **Gate:** measured baseline, correct evaluation, and owner-set blocking target
-met with justified comparison reduction. Stop if evaluation is still a stub.
+met with justified comparison reduction. Technical checks passed and owner
+closure sign-off was recorded on 2026-10-02; no Phase 3 stubs remain.
 
-## Phase 4 — Probabilistic matching
+## Phase 4 — Probabilistic matching (current)
 
 **Owner inputs:** per-field comparisons and levels, term-frequency adjustments,
 EM blocks, training/prior choices and error analysis. Owner understands m, u,
@@ -236,10 +240,10 @@ rerun, every decision is retrievable, and no ground truth reaches the UI.
 
 ## Immediate work order and scheduling
 
-1. Close Phase 2 assumptions and verify its outputs/tests.
-2. Obtain owner acceptance of Phase 2 and advance the phase explicitly.
-3. Agree Phase 3 rules and the evaluation interface; owner writes evaluation.
-4. Work through Phases 3–7 sequentially, one reviewed phase at a time.
+1. Record the Phase 4 modeling decisions in config and OPEN-DECISIONS.md.
+2. Verify approved APIs against the installed Splink 4.0.17 package.
+3. Implement and evaluate Phase 4 against the approved Phase 3 baseline.
+4. Work through Phases 5-7 sequentially after their owner acceptance gates.
 5. Decide on Phase 8 and only then consider other stretch work.
 
 Use the roadmap's effort estimates for scheduling; they are estimates, not

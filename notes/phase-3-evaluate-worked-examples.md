@@ -2,11 +2,12 @@
 
 **These are toy numbers.** The dataset below is invented for this note. It is not Febrl 3 and
 nothing here is a pipeline result: no figure describes the real data. Every number was worked
-by hand and re-checked with an independent script (not committed). Real results belong in
-`reports/metrics.json`, once your `evaluate.py` produces them.
+by hand and re-checked with an independent script (not committed). Real results are in
+`reports/metrics.json`, written by the pipeline's evaluation stage.
 
-`src/evaluate.py` is yours to write. This note only gives you inputs and expected outputs to
-check it against, and it makes no decision for you.
+`src/evaluate.py` is owner-written, and it is now implemented. This note gives inputs and
+expected outputs to check it against, and it makes no decision for the owner. The owner's own
+cases are in `tests/test_evaluate.py`.
 
 ## Conventions these examples assume (confirm or change)
 
@@ -52,8 +53,9 @@ SELECT * FROM (VALUES (1,10),(2,10),(3,10),(4,20),(5,20),(6,30),(7,30),(8,40))
 - **B:** the false positive is (1,4), which joins entities 10 and 20. The false negatives are (2,3) and (6,7).
 - **C:** records 1, 2, 3 are one entity, so a clustering step would infer (1,3) from (1,2) and (2,3).
   *Pairwise* scoring does not, so (1,3) counts as a miss. This is why Phase 5 has cluster-level metrics too.
-- **E:** precision is 0/0. **What to return for an undefined value (None, NaN, 0.0, or raise) is your decision.**
-  The same question arises for recall and completeness on a dataset with no true pairs.
+- **E:** precision is 0/0, which is undefined. The owner decided that an undefined ratio is returned as
+  `None` (JSON null), never NaN or a misleading zero. The same applies to recall and completeness on a
+  dataset with no true pairs.
 
 ## `pair_completeness`: how much of the truth survives blocking
 
