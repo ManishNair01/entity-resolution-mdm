@@ -39,3 +39,8 @@ seed.
 Febrl 3 is synthetic, and it carries no source system or timestamp. The
 `source_system` and `last_updated` columns this pipeline uses for survivorship
 are generated, not real — see `src/ingest.py`.
+
+The age-review bands are a policy demonstration on synthetic data, not evidence
+of unusual ages in a real customer population. Keep the fixed reference date
+2026-09-22 and the existing bands; minor routing is covered by unit tests.
+Missing values display as `[Missing]` where rendered; stored values remain NULL.

@@ -214,9 +214,13 @@ def test_the_committed_name_and_address_chains_remove_padding_of_every_kind():
     ]
 
 
-def test_the_committed_identifier_and_date_chains_are_strict():
+def test_the_committed_identifier_and_date_chains_trim_then_validate_strictly():
     assert applied(committed_steps("postcode"), ["\t2000\n", " 2000 ", "20 00"]) == ["2000", "2000", "20 00"]
-    assert applied(committed_steps("date_of_birth"), ["19700101", "1970011", " 19700101", "19700230"]) == [
+    assert applied(committed_steps("date_of_birth"), ["19700101", "1970011", " 19700101", "19700230", "\t19700101\n", "1970 0101", None, " "]) == [
+        "1970-01-01",
+        None,
+        "1970-01-01",
+        None,
         "1970-01-01",
         None,
         None,

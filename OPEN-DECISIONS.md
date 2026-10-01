@@ -4,7 +4,7 @@ Things the agent needs from the owner, and the decisions already made. The agent
 adds to this file whenever it hits a choice that belongs to the owner
 (`AGENTS.md`, "Owner-owned decisions"), or makes an assumption to keep moving.
 
-**Owner:** Manish Manoj Nair · **Last updated:** 2026-10-01 (Phase 2 review findings fixed and verified; items 12 and 13 still await the owner)
+**Owner:** Manish Manoj Nair · **Last updated:** 2026-10-01 (item 12 accepted; DOB trimming and display-only NULL placeholder decided; other item 13 assumptions remain open)
 
 - **Open** — waiting on you. The agent has assumed something in the meantime;
   each entry says what.
@@ -150,24 +150,12 @@ research is summarized in `reports/Centenarian prevalence and review.md`.
 Project-specific age counts and comparison ratios remain `[TBD]` in that report
 until the pipeline produces them in `reports/metrics.json` during a run.
 
-### 12. The 100+ band is very large on this dataset, and the minor band is empty
+### 13. Agent choices made while implementing the Phase 2 rules — partly resolved
 
-*Raised by the agent, 2026-09-29.* A scratch run of the full pipeline (numbers
-are in `reports/metrics.json` under `age_review.*` after `python run_pipeline.py`;
-none are quoted here) shows the standardized DOBs span 1900-01-03 to 1999-12-12.
-Febrl generates birth years uniformly, so against the fixed reference date the
-`age_100_plus` band captures roughly a quarter of all records, and
-`minor_verification` captures none because nobody is born after 2008. This
-conflicts with the premise in item 11 that age 100+ is statistically exceptional
-(the AIHW figure is about 0.02%), so on this synthetic data the band is a property
-of how Febrl was generated, not a signal.
-
-*Assumed:* nothing changed. The bands run exactly as written and flag whoever
-falls in them. Your call: keep the bands as a policy demonstration and say so in
-the README limitations, change the 100+ threshold, or treat this as a reason to
-document that the review rule is exercised only by unit tests on the minor band.
-
-### 13. Agent choices made while implementing the Phase 2 rules
+Owner update (2026-10-01): keep the reference date 2026-09-22; trim padded DOBs
+before strict parsing; display NULL as `[Missing]` while retaining database NULLs.
+These choices are recorded under Decided. No acceptance of the remaining
+assumptions is implied, including future-DOB handling or blank-to-NULL conversion.
 
 *Assumed, overrule any of them:*
 
@@ -211,12 +199,12 @@ before and after the fix gave the same metrics apart from one new config echo,
   parser reads `1970011` as 1970-01-01 and tolerates padding, which would invent a
   date the source never held. `DQ-V-001`, the DOB signal in `DQ-C-004` and
   `normalize_date` now accept a value only if re-formatting the parsed date
-  reproduces it, so a seven-digit or padded DOB is invalid and becomes NULL.
-- **A padded DOB is invalid, not trimmed.** The config has no `trim` step before
-  `normalize_date` on `date_of_birth`, and the policy says an unparseable source
-  becomes NULL, so `' 19700101'` is treated as unusable. Not observed in the data
-  (every DOB is NULL or exactly eight digits). Add a `trim` step to the DOB chain
-  if you would rather accept padded dates.
+  reproduces it, so a seven-digit DOB is invalid and becomes NULL. Padding is now removed
+  first by the owner-approved DOB standardization step.
+- **Padded DOBs are now trimmed (owner decision, 2026-10-01).** The DOB chain
+  trims surrounding whitespace before strict parsing. Raw checks still flag
+  the original padded representation; the standardized date can be valid.
+  Short dates, internal whitespace and impossible calendar dates remain invalid.
 - **Age-review output is protected.** `output_table` may not be `raw_customers`,
   `std_customers` or any `dq_violations_*` table, and the stage refuses to replace
   an existing table that does not have its own columns (so it cannot overwrite a
@@ -257,8 +245,8 @@ default is assumed.
 
 **Phase 2 — DQ rules.** The engine, check types, transforms, age-review stage and
 their tests are in place (`src/dq_rules.py`, `src/standardize.py`,
-`src/age_review.py`). Remaining for you: answer items 12 and 13 (the age-band
-presentation, and whether to keep or overrule the agent's assumptions), and
+`src/age_review.py`). Item 12 is now resolved. Remaining for you: review the unresolved parts of item
+13 (whether to keep or overrule the other assumptions), and
 confirm `RULEBOOK.md` section 1. Then advance the phase in `AGENTS.md`.
 
 ---
@@ -267,6 +255,9 @@ confirm `RULEBOOK.md` section 1. Then advance the phase in `AGENTS.md`.
 
 | Date | Decision | Notes |
 |---|---|---|
+| 2026-10-01 | Item 12 resolved: retain age bands as a policy demonstration | Document the synthetic-data limitation in README; minor routing is covered by unit tests. Keep the reference date 2026-09-22. No threshold change. |
+| 2026-10-01 | Trim padded DOBs before strict parsing (item 13) | Add trim before normalize_date; preserve raw DOBs. Raw format violations remain visible, while valid trimmed dates become usable in standardized data. Internal corruption remains invalid. |
+| 2026-10-01 | Display NULL values as `[Missing]` (item 13) | Display-only placeholder; keep database NULLs and JSON nulls. Empty-string policy is unchanged. Applied to the existing profile value renderer and unavailable length values; future review screens must use the same display convention. |
 | 2026-09-22 | Python 3.11 via `py -3.11`; venv at `.venv` | The machine's default `python` is 3.9 |
 | 2026-09-22 | Repo `entity-resolution-mdm`, public, MIT | Description and topics set in the GitHub UI |
 | 2026-09-22 | Derive synthetic values by hash, not RNG | Makes the fresh-clone test reproducible across platforms, Python versions and input order |
